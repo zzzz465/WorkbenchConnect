@@ -12,7 +12,7 @@ namespace WorkbenchConnect
         {
             settings = GetSettings<WorkbenchConnectSettings>();
             
-            var harmony = new Harmony("workbenchconnect.mod");
+            var harmony = new Harmony("jungooji.workbenchconnect");
             harmony.PatchAll();
             
             Log.Message("[WorkbenchConnect] Mod loaded successfully");
