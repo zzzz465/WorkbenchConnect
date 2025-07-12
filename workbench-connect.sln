@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{B8EFCA5F-814F-285C-A8CB-F00F14650265}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkbenchConnect", "Source\WorkbenchConnect\WorkbenchConnect.csproj", "{FE0E2D29-5F79-A34E-7870-575FE83212B9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FE0E2D29-5F79-A34E-7870-575FE83212B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE0E2D29-5F79-A34E-7870-575FE83212B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE0E2D29-5F79-A34E-7870-575FE83212B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE0E2D29-5F79-A34E-7870-575FE83212B9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FE0E2D29-5F79-A34E-7870-575FE83212B9} = {B8EFCA5F-814F-285C-A8CB-F00F14650265}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {551BA785-2806-43E2-97D2-A58D26D3DA09}
+	EndGlobalSection
+EndGlobal

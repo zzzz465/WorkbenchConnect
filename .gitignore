@@ -1,0 +1,63 @@
+# Build outputs
+Assemblies/*.dll
+Assemblies/*.pdb
+Assemblies/*.xml
+
+# Keep the Assemblies directory but ignore contents except .gitkeep
+!Assemblies/.gitkeep
+
+# .NET build artifacts
+Source/*/bin/
+Source/*/obj/
+Source/*/.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# Visual Studio / IDE files
+.vs/
+*.sln.docstates
+*.userprefs
+*.pidb
+*.booproj
+*~
+*.swp
+*.DS_Store
+
+# ReSharper
+_ReSharper*/
+*.ReSharper.user
+
+# JetBrains Rider
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+Temp/
+
+# Unity-related (if applicable)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+Assets/AssetStoreTools*
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+
+# RimWorld mod testing
+TestingFiles/
+Screenshots/
+
+# Backup files
+*.backup
+*.bak
+*.orig

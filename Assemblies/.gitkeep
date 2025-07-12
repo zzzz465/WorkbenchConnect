@@ -1,0 +1,2 @@
+# This file ensures the Assemblies directory is tracked by git
+# while .gitignore excludes the actual DLL files

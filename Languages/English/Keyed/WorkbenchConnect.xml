@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Gizmo Labels and Descriptions -->
+  <WorkbenchConnect.LinkWorkbench>Link workbench</WorkbenchConnect.LinkWorkbench>
+  <WorkbenchConnect.LinkWorkbenchDesc>Connect this workbench to another workbench to share bills between them. Click to select a target workbench.</WorkbenchConnect.LinkWorkbenchDesc>
+  
+  <WorkbenchConnect.UnlinkWorkbench>Unlink workbench</WorkbenchConnect.UnlinkWorkbench>
+  <WorkbenchConnect.UnlinkWorkbenchDesc>Disconnect this workbench from its group, giving it its own bill queue again.</WorkbenchConnect.UnlinkWorkbenchDesc>
+  
+  <WorkbenchConnect.SelectLinked>Select linked</WorkbenchConnect.SelectLinked>
+  <WorkbenchConnect.SelectLinkedDesc>Select all workbenches connected to this one.</WorkbenchConnect.SelectLinkedDesc>
+  
+  <!-- Messages -->
+  <WorkbenchConnect.WorkbenchesLinked>Workbenches have been linked and will now share bills.</WorkbenchConnect.WorkbenchesLinked>
+  <WorkbenchConnect.WorkbenchUnlinked>Workbench has been unlinked from its group.</WorkbenchConnect.WorkbenchUnlinked>
+  
+  <!-- Group Names -->
+  <WorkbenchConnect.GroupDefaultName>Workbench Group</WorkbenchConnect.GroupDefaultName>
+  
+  <!-- Settings -->
+  <WorkbenchConnect.MaxConnectionDistance>Max connection distance: {0}</WorkbenchConnect.MaxConnectionDistance>
+  <WorkbenchConnect.EnableDebugLogging>Enable debug logging</WorkbenchConnect.EnableDebugLogging>
+  
+  <!-- Errors and Warnings -->
+  <WorkbenchConnect.CannotLinkDifferentTypes>Cannot link workbenches of different types.</WorkbenchConnect.CannotLinkDifferentTypes>
+  <WorkbenchConnect.CannotLinkTooFar>Workbenches are too far apart to link (max distance: {0}).</WorkbenchConnect.CannotLinkTooFar>
+  <WorkbenchConnect.AlreadyLinked>These workbenches are already linked.</WorkbenchConnect.AlreadyLinked>
+</LanguageData>
