@@ -13,10 +13,6 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Lib.Harmony" Version="2.2.2" ExcludeAssets="runtime" />
-  </ItemGroup>
-
   <PropertyGroup>
     <RimWorldManagedPath Condition="'$(RimWorldManagedPath)' == '' AND '$([MSBuild]::IsOSPlatform(OSX))'">$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManagedPath>
     <RimWorldManagedPath Condition="'$(RimWorldManagedPath)' == '' AND '$([MSBuild]::IsOSPlatform(Windows))'">$(ProgramFiles)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</RimWorldManagedPath>
@@ -41,7 +37,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="0Harmony">
-      <HintPath>../../Assemblies/0Harmony.dll</HintPath>
+      <HintPath>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2009463077/Current/Assemblies/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
