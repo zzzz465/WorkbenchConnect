@@ -1,7 +1,7 @@
 @echo off
 echo Building WorkbenchConnect mod...
 cd Source\WorkbenchConnect
-dotnet build --configuration Release
+dotnet build --configuration Debug
 if %ERRORLEVEL% EQU 0 (
     echo Build successful! DLL created in Assemblies folder.
 ) else (
