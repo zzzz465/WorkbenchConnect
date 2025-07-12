@@ -7,7 +7,7 @@ namespace WorkbenchConnect.Core
 {
     public class WorkbenchGroupManager : MapComponent, IExposable
     {
-        private List<WorkbenchGroup> groups = new List<WorkbenchGroup>();
+        private List<WorkbenchGroup> groups = [];
         private int nextGroupID = 1;
 
         public WorkbenchGroupManager(Map map) : base(map)
@@ -81,7 +81,7 @@ namespace WorkbenchConnect.Core
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (groups == null)
-                    groups = new List<WorkbenchGroup>();
+                    groups = [];
 
                 // Clean up invalid groups and update next ID
                 groups.RemoveAll(g => g == null || !g.Valid);

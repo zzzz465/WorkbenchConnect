@@ -9,7 +9,7 @@ namespace WorkbenchConnect.Core
     public class WorkbenchGroup : IExposable
     {
         public int loadID = -1;
-        public List<IWorkbenchGroupMember> members = new List<IWorkbenchGroupMember>();
+        public List<IWorkbenchGroupMember> members = [];
         public BillStack sharedBillStack = new BillStack(null);
         public string groupLabel = "";
         
@@ -140,7 +140,7 @@ namespace WorkbenchConnect.Core
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (members == null)
-                    members = new List<IWorkbenchGroupMember>();
+                    members = [];
                 
                 if (sharedBillStack == null)
                     sharedBillStack = new BillStack(null);
