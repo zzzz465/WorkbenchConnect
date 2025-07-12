@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <AssemblyName>WorkbenchConnect</AssemblyName>
     <RootNamespace>WorkbenchConnect</RootNamespace>
     <LangVersion>latest</LangVersion>
