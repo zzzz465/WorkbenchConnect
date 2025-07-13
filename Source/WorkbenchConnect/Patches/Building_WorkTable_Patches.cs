@@ -17,6 +17,7 @@ namespace WorkbenchConnect.Patches
         {
             public Building_WorkTable workTable;
             public WorkbenchGroup group;
+            public int savedGroupID = -1; // Store group ID separately for save/load
 
             public WorkbenchGroup Group
             {
@@ -157,47 +158,77 @@ namespace WorkbenchConnect.Patches
         {
             var member = GetMemberData(__instance);
             
-            // During saving, temporarily set billStack to null for grouped workbenches
+            // During saving, temporarily create an empty billStack for grouped workbenches
+            // This prevents the shared bills from being saved multiple times
             if (member.Group != null && Scribe.mode == LoadSaveMode.Saving)
             {
-                // Store original billStack and set to null
+                // Store original billStack and create empty one for saving
                 temporaryBillStacks[__instance] = __instance.billStack;
-                __instance.billStack = null;
+                __instance.billStack = new BillStack(__instance); // Empty bill stack
             }
         }
 
         public static void ExposeData_Postfix(Building_WorkTable __instance)
         {
-            var member = GetMemberData(__instance);
+            var member = GetMemberData(__instance) as WorkbenchGroupMemberData;
 
             // Restore original billStack after saving
             if (temporaryBillStacks.TryGetValue(__instance, out var originalBillStack))
             {
                 __instance.billStack = originalBillStack;
                 temporaryBillStacks.Remove(__instance);
+                DebugHelper.Log($"Restored original billStack for {__instance.def.defName} after saving");
             }
 
-            int groupID = member.Group?.loadID ?? -1;
-            Scribe_Values.Look(ref groupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID != -1)
+            // Use the saved group ID during loading, current group ID during saving
+            if (Scribe.mode == LoadSaveMode.Saving)
             {
+                member.savedGroupID = member.Group?.loadID ?? -1;
+            }
+            
+            DebugHelper.Log($"Workbench {__instance.def.defName} (ID: {__instance.thingIDNumber}) - Mode: {Scribe.mode}, SavedGroupID: {member.savedGroupID}");
+            
+            Scribe_Values.Look(ref member.savedGroupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
+            
+            DebugHelper.Log($"After Scribe_Values.Look - SavedGroupID: {member.savedGroupID}");
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit && member.savedGroupID != -1)
+            {
+                DebugHelper.Log($"Attempting to restore workbench {__instance.def.defName} to group {member.savedGroupID}");
                 var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
-                var group = manager?.GetGroupByID(groupID);
+                DebugHelper.Log($"Manager found: {manager != null}");
+                
+                var group = manager?.GetGroupByID(member.savedGroupID);
+                DebugHelper.Log($"Group {member.savedGroupID} found: {group != null}");
+                
                 if (group != null)
                 {
                     // Add this member to the group (this will set the shared billStack)
                     group.AddMember(member);
-                    DebugHelper.Log($"Restored workbench {__instance.def.defName} to group {groupID}");
+                    DebugHelper.Log($"Successfully restored workbench {__instance.def.defName} to group {member.savedGroupID}");
+                }
+                else
+                {
+                    DebugHelper.Warning($"Could not find group {member.savedGroupID} for workbench {__instance.def.defName}, treating as ungrouped");
+                    // Ensure workbench has a proper billStack if group not found
+                    if (__instance.billStack == null || __instance.billStack.Bills.Count == 0)
+                    {
+                        __instance.billStack = new BillStack(__instance);
+                    }
                 }
             }
-            else if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID == -1)
+            else if (Scribe.mode == LoadSaveMode.PostLoadInit && member.savedGroupID == -1)
             {
+                DebugHelper.Log($"Workbench {__instance.def.defName} is ungrouped");
                 // For ungrouped workbenches, ensure they have a proper billStack
                 if (__instance.billStack == null)
                 {
                     __instance.billStack = new BillStack(__instance);
                 }
+            }
+            else if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                DebugHelper.Log($"Saving workbench {__instance.def.defName} with groupID {member.savedGroupID}");
             }
         }
 

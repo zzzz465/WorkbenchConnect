@@ -30,7 +30,31 @@ namespace WorkbenchConnect.Core
             };
 
             groups.Add(group);
-            DebugHelper.Log($"Created new workbench group {group.loadID} on map {map}");
+            DebugHelper.Log($"Created new workbench group {group.loadID} on map {map} with founder {founder}");
+            DebugHelper.Log($"Total groups now: {groups.Count}");
+            
+            return group;
+        }
+
+        public WorkbenchGroup NewGroupWithBills(IWorkbenchGroupMember founder, List<RimWorld.Bill> allBills)
+        {
+            if (founder?.Map != map)
+            {
+                DebugHelper.Error($"Attempted to create workbench group on wrong map");
+                return null;
+            }
+
+            var group = new WorkbenchGroup()
+            {
+                loadID = nextGroupID++
+            };
+
+            // Initialize the group with all collected bills
+            group.InitializeWithBills(founder, allBills);
+
+            groups.Add(group);
+            DebugHelper.Log($"Created new workbench group {group.loadID} with {allBills.Count} bills on map {map} with founder {founder}");
+            DebugHelper.Log($"Total groups now: {groups.Count}");
             
             return group;
         }
@@ -75,23 +99,46 @@ namespace WorkbenchConnect.Core
         {
             base.ExposeData();
             
+            DebugHelper.Log($"WorkbenchGroupManager.ExposeData() - Mode: {Scribe.mode}, Groups count: {groups?.Count ?? 0}");
+            
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                DebugHelper.Log($"Saving {groups.Count} workbench groups:");
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    DebugHelper.Log($"  Group {i}: ID={groups[i].loadID}, Members={groups[i].members.Count}, Bills={groups[i].sharedBillStack?.Bills?.Count ?? 0}");
+                }
+            }
+            
             Scribe_Values.Look(ref nextGroupID, "nextGroupID", 1);
             Scribe_Collections.Look(ref groups, "groups", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                DebugHelper.Log($"After loading: Groups={groups?.Count ?? 0}, NextGroupID={nextGroupID}");
+                
                 if (groups == null)
                     groups = [];
 
                 // Clean up invalid groups and update next ID
+                int originalCount = groups.Count;
                 groups.RemoveAll(g => g == null || !g.Valid);
+                
+                if (originalCount != groups.Count)
+                {
+                    DebugHelper.Log($"Removed {originalCount - groups.Count} invalid groups");
+                }
                 
                 if (groups.Any())
                 {
                     nextGroupID = groups.Max(g => g.loadID) + 1;
                 }
 
-                DebugHelper.Log($"Loaded {groups.Count} workbench groups on map {map}");
+                DebugHelper.Log($"Final loaded groups: {groups.Count}");
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    DebugHelper.Log($"  Loaded Group {i}: ID={groups[i].loadID}, Label={groups[i].groupLabel}");
+                }
             }
         }
 

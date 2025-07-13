@@ -83,8 +83,24 @@ namespace WorkbenchConnect.Core
                 icon = LinkTex,
                 action = () =>
                 {
-                    bool hasExistingGroup = tmpMembers[0].Group != null;
-                    WorkbenchGroup group = tmpMembers[0].Group ?? manager.NewGroup(tmpMembers[0]);
+                    // Find existing group or create new one
+                    WorkbenchGroup group = tmpMembers.FirstOrDefault(m => m.Group != null)?.Group;
+                    
+                    if (group == null)
+                    {
+                        // Collect all bills from all selected workbenches before creating group
+                        var allBills = new List<Bill>();
+                        foreach (var tmpMember in tmpMembers)
+                        {
+                            if (tmpMember.BillStack?.Bills?.Any() == true)
+                            {
+                                allBills.AddRange(tmpMember.BillStack.Bills);
+                            }
+                        }
+                        
+                        // Create new group with collected bills
+                        group = manager.NewGroupWithBills(tmpMembers[0], allBills);
+                    }
                     
                     foreach (IWorkbenchGroupMember tmpMember in tmpMembers)
                     {

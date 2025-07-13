@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
 using RimWorld;
 using Verse;
 using WorkbenchConnect.Utils;
@@ -29,6 +30,11 @@ namespace WorkbenchConnect.Core
         {
             get
             {
+                // During loading, don't validate member count since members haven't been added yet
+                if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.ResolvingCrossRefs || Scribe.mode == LoadSaveMode.PostLoadInit)
+                {
+                    return true;
+                }
                 return members.Count > 1 && members.All(m => m?.Map != null);
             }
         }
@@ -124,6 +130,24 @@ namespace WorkbenchConnect.Core
             DebugHelper.Log($"Created new workbench group with founder: {founder}");
         }
 
+        public void InitializeWithBills(IWorkbenchGroupMember founder, List<Bill> allBills)
+        {
+            // Initialize shared bill stack with the founder as billGiver
+            sharedBillStack = new BillStack(founder.SelectableThing as IBillGiver);
+            
+            // Add all collected bills to shared stack (without cloning to preserve ownership)
+            foreach (var bill in allBills)
+            {
+                sharedBillStack.AddBill(bill);
+            }
+            
+            members.Add(founder);
+            founder.Group = this;
+            groupLabel = GetNewGroupLabel();
+            
+            DebugHelper.Log($"Initialized new workbench group with founder: {founder} and {allBills.Count} bills");
+        }
+
         public void AddMember(IWorkbenchGroupMember member)
         {
             if (members.Contains(member))
@@ -136,25 +160,45 @@ namespace WorkbenchConnect.Core
             {
                 sharedBillStack = new BillStack(member.SelectableThing as IBillGiver);
                 
-                // Restore saved bills if available
+                // Restore saved bills if available (this happens during save loading)
                 if (restoredBills != null)
                 {
                     foreach (var bill in restoredBills)
                     {
+                        // Ensure bill has proper billStack reference to prevent null reference errors
                         sharedBillStack.AddBill(bill);
+                        
+                        // Ensure bill has proper billStack reference (essential during loading)
+                        var billStackField = AccessTools.Field(typeof(Bill), "billStack");
+                        billStackField?.SetValue(bill, sharedBillStack);
                     }
                     restoredBills = null; // Clear after restoration
+                }
+            }
+            else
+            {
+                // If sharedBillStack already exists, update its billGiver to this member
+                // This can happen when multiple members are added to an existing group
+                var billGiverField = AccessTools.Field(typeof(BillStack), "billGiver");
+                if (billGiverField?.GetValue(sharedBillStack) == null)
+                {
+                    billGiverField.SetValue(sharedBillStack, member.SelectableThing as IBillGiver);
                 }
             }
             
             // Migrate existing bills to shared stack BEFORE setting Group property
             // (because setting Group will replace the billStack field)
+            // Check for duplicates to avoid adding bills that are already in the shared stack
             if (member.BillStack?.Bills?.Any() == true)
             {
                 var billsToMigrate = member.BillStack.Bills.ToList();
                 foreach (var bill in billsToMigrate)
                 {
-                    sharedBillStack.AddBill(bill);
+                    // Only add if not already in shared stack (to prevent duplicates)
+                    if (!sharedBillStack.Bills.Contains(bill))
+                    {
+                        sharedBillStack.AddBill(bill);
+                    }
                 }
             }
 
@@ -224,6 +268,8 @@ namespace WorkbenchConnect.Core
 
         public void ExposeData()
         {
+            DebugHelper.Log($"WorkbenchGroup.ExposeData() - Mode: {Scribe.mode}, LoadID: {loadID}, Label: '{groupLabel}', Members: {members?.Count ?? 0}");
+            
             Scribe_Values.Look(ref loadID, "loadID", 0);
             Scribe_Values.Look(ref groupLabel, "groupLabel", "");
             // Don't save members list - it will be reconstructed from individual workbenches
@@ -233,11 +279,14 @@ namespace WorkbenchConnect.Core
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 savedBills = sharedBillStack?.Bills?.ToList();
+                DebugHelper.Log($"Saving group {loadID} with {savedBills?.Count ?? 0} bills");
             }
             Scribe_Collections.Look(ref savedBills, "savedBills", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                DebugHelper.Log($"Loading group {loadID} - got {savedBills?.Count ?? 0} bills");
+                
                 if (members == null)
                     members = [];
                 
@@ -245,13 +294,15 @@ namespace WorkbenchConnect.Core
                 if (billReservations == null)
                     billReservations = new Dictionary<Bill, Pawn>();
                 
-                // Restore bills when first member is added
+                // Store saved bills for member restoration
                 if (savedBills != null)
                 {
-                    // Store the saved bills for later restoration
                     restoredBills = savedBills;
+                    DebugHelper.Log($"Stored {restoredBills.Count} bills for restoration in group {loadID}");
                 }
             }
+            
+
         }
     }
 }
