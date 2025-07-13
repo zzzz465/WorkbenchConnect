@@ -6,7 +6,13 @@
     <li>1.6</li>
   </supportedVersions>
   <packageId>jungooji.workbenchconnect</packageId>
-  <description>Connect multiple workbenches to share bills between them. Allows for more efficient production chains and automated workflows.</description>
+  <description>
+Connect multiple workbenches to share bills between them.
+Should be compatible with any mods.
+
+safe to add mid-game.
+when removing mod, make sure you removed all links.
+</description>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>
