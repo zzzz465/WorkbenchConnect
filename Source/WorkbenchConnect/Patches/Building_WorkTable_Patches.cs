@@ -117,8 +117,40 @@ namespace WorkbenchConnect.Patches
 
         public static void SpawnSetup_Postfix(Building_WorkTable __instance)
         {
-            var member = GetMemberData(__instance);
-            DebugHelper.Log($"Workbench spawned: {__instance.def.defName} at {__instance.Position}");
+            var member = GetMemberData(__instance) as WorkbenchGroupMemberData;
+            DebugHelper.Log($"[DEBUG] Workbench spawned: {__instance.def.defName} at {__instance.Position}");
+            
+            // Try to restore to saved group if we have one
+            if (member?.savedGroupID > 0)
+            {
+                DebugHelper.Log($"[DEBUG] Attempting to restore spawned workbench {__instance.def.defName} to group {member.savedGroupID}");
+                var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
+                DebugHelper.Log($"[DEBUG] Manager found: {manager != null}");
+                
+                if (manager != null)
+                {
+                    var group = manager.GetGroupByID(member.savedGroupID);
+                    DebugHelper.Log($"[DEBUG] Group {member.savedGroupID} found: {group != null}");
+                    
+                    if (group != null)
+                    {
+                        // Add this member to the group (this will set the shared billStack)
+                        group.AddMember(member);
+                        DebugHelper.Log($"[DEBUG] Successfully restored workbench {__instance.def.defName} to group {member.savedGroupID}");
+                        
+                        // Clear the saved group ID since we've successfully restored
+                        member.savedGroupID = -1;
+                    }
+                    else
+                    {
+                        DebugHelper.Warning($"Could not find group {member.savedGroupID} for workbench {__instance.def.defName}");
+                    }
+                }
+                else
+                {
+                    DebugHelper.Warning($"No WorkbenchGroupManager found on map {__instance.Map} for workbench {__instance.def.defName}");
+                }
+            }
         }
 
         public static void DeSpawn_Prefix(Building __instance)
@@ -186,41 +218,25 @@ namespace WorkbenchConnect.Patches
                 member.savedGroupID = member.Group?.loadID ?? -1;
             }
             
-            DebugHelper.Log($"Workbench {__instance.def.defName} (ID: {__instance.thingIDNumber}) - Mode: {Scribe.mode}, SavedGroupID: {member.savedGroupID}");
+            DebugHelper.Log($"[DEBUG] Workbench {__instance.def.defName} (ID: {__instance.thingIDNumber}) - Mode: {Scribe.mode}, SavedGroupID: {member.savedGroupID}");
             
             Scribe_Values.Look(ref member.savedGroupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
             
             DebugHelper.Log($"After Scribe_Values.Look - SavedGroupID: {member.savedGroupID}");
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && member.savedGroupID != -1)
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                DebugHelper.Log($"Attempting to restore workbench {__instance.def.defName} to group {member.savedGroupID}");
-                var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
-                DebugHelper.Log($"Manager found: {manager != null}");
-                
-                var group = manager?.GetGroupByID(member.savedGroupID);
-                DebugHelper.Log($"Group {member.savedGroupID} found: {group != null}");
-                
-                if (group != null)
+                // Note: Group restoration is now handled in SpawnSetup_Postfix when workbench has proper map reference
+                if (member.savedGroupID == -1)
                 {
-                    // Add this member to the group (this will set the shared billStack)
-                    group.AddMember(member);
-                    DebugHelper.Log($"Successfully restored workbench {__instance.def.defName} to group {member.savedGroupID}");
+                    DebugHelper.Log($"Workbench {__instance.def.defName} is ungrouped");
                 }
                 else
                 {
-                    DebugHelper.Warning($"Could not find group {member.savedGroupID} for workbench {__instance.def.defName}, treating as ungrouped");
-                    // Ensure workbench has a proper billStack if group not found
-                    if (__instance.billStack == null || __instance.billStack.Bills.Count == 0)
-                    {
-                        __instance.billStack = new BillStack(__instance);
-                    }
+                    DebugHelper.Log($"Workbench {__instance.def.defName} will be restored to group {member.savedGroupID} on spawn");
                 }
-            }
-            else if (Scribe.mode == LoadSaveMode.PostLoadInit && member.savedGroupID == -1)
-            {
-                DebugHelper.Log($"Workbench {__instance.def.defName} is ungrouped");
-                // For ungrouped workbenches, ensure they have a proper billStack
+                
+                // Ensure workbench has a proper billStack if not grouped
                 if (__instance.billStack == null)
                 {
                     __instance.billStack = new BillStack(__instance);
