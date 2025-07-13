@@ -3,15 +3,23 @@ using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
+using WorkbenchConnect.Patches;
 using WorkbenchConnect.Utils;
 
 namespace WorkbenchConnect.Core
 {
+    [StaticConstructorOnStartup]
     public static class WorkbenchGroupUtility
     {
-        public static readonly Texture2D LinkTex = ContentFinder<Texture2D>.Get("UI/Commands/SetTargetFuelLevel");
-        public static readonly Texture2D UnlinkTex = ContentFinder<Texture2D>.Get("UI/Commands/Break");
-        public static readonly Texture2D SelectLinkedTex = ContentFinder<Texture2D>.Get("UI/Commands/SelectMonument");
+        public static readonly Texture2D LinkTex = ContentFinder<Texture2D>.Get("UI/Commands/LinkStorageSettings");
+        public static readonly Texture2D UnlinkTex = ContentFinder<Texture2D>.Get("UI/Commands/UnlinkStorageSettings");
+        public static readonly Texture2D SelectLinkedTex = ContentFinder<Texture2D>.Get("UI/Commands/SelectAllLinked");
+        
+        public static readonly Material GroupedMat = MaterialPool.MatFrom("UI/Overlays/SelectionBracket", ShaderDatabase.MetaOverlay, new Color(0f, 1f, 1f, 0.2f));
+
+        private static List<IWorkbenchGroupMember> tmpMembers = new List<IWorkbenchGroupMember>();
+        private static HashSet<WorkbenchGroup> drawnGroupsThisFrame = new HashSet<WorkbenchGroup>();
 
         public static IEnumerable<Gizmo> WorkbenchGroupMemberGizmos(IWorkbenchGroupMember member)
         {
@@ -22,166 +30,171 @@ namespace WorkbenchConnect.Core
             if (manager == null)
                 yield break;
 
-            // Link/Unlink commands
-            if (member.Group == null)
+            bool allInSameGroup = true;
+            WorkbenchGroup workbenchGroup = null;
+            tmpMembers.Clear();
+
+            // Collect all selected workbenches with same type
+            foreach (object selectedObject in Find.Selector.SelectedObjects)
             {
-                yield return new Command_Action
+                // Check if it's a Building_WorkTable and get its member data
+                if (!(selectedObject is Building_WorkTable workTable))
                 {
-                    action = () => StartLinkingProcess(member),
-                    defaultLabel = "WorkbenchConnect.LinkWorkbench".Translate(),
-                    defaultDesc = "WorkbenchConnect.LinkWorkbenchDesc".Translate(),
-                    icon = LinkTex,
-                    hotKey = KeyBindingDefOf.Misc1
-                };
+                    continue;
+                }
+                
+                var workbenchMember = Building_WorkTable_Patches.GetMemberData(workTable);
+                
+                if (workbenchMember.WorkbenchGroupTag != member.WorkbenchGroupTag)
+                {
+                    continue;
+                }
+                
+                if (workbenchMember.Map != member.Map)
+                {
+                    continue;
+                }
+                
+                tmpMembers.Add(workbenchMember);
+                
+                if (allInSameGroup)
+                {
+                    if (workbenchGroup == null && workbenchMember.Group != null)
+                    {
+                        workbenchGroup = workbenchMember.Group;
+                    }
+                    if (workbenchGroup != workbenchMember.Group)
+                    {
+                        allInSameGroup = false;
+                    }
+                }
             }
-            else
+
+            if (workbenchGroup == null)
+            {
+                allInSameGroup = false;
+            }
+
+            // Link workbenches command
+            Command_Action linkCommand = new Command_Action
+            {
+                defaultLabel = "WorkbenchConnect.LinkWorkbench".Translate(),
+                defaultDesc = "WorkbenchConnect.LinkWorkbenchDesc".Translate(),
+                icon = LinkTex,
+                action = () =>
+                {
+                    bool hasExistingGroup = tmpMembers[0].Group != null;
+                    WorkbenchGroup group = tmpMembers[0].Group ?? manager.NewGroup(tmpMembers[0]);
+                    
+                    foreach (IWorkbenchGroupMember tmpMember in tmpMembers)
+                    {
+                        SetWorkbenchGroup(tmpMember, group);
+                    }
+                    
+                    if (tmpMembers.Count > 1)
+                    {
+                        Messages.Message("WorkbenchConnect.WorkbenchesLinked".Translate(tmpMembers.Count), null, MessageTypeDefOf.NeutralEvent, historical: false);
+                    }
+                    else
+                    {
+                        Messages.Message("WorkbenchConnect.WorkbenchLinked".Translate(), null, MessageTypeDefOf.NeutralEvent, historical: false);
+                    }
+                },
+                hotKey = KeyBindingDefOf.Misc1
+            };
+
+            if (tmpMembers.Count < 2)
+            {
+                linkCommand.Disable("WorkbenchConnect.LinkDisabledSelectTwo".Translate());
+            }
+            else if (allInSameGroup)
+            {
+                linkCommand.Disable("WorkbenchConnect.AlreadyLinked".Translate());
+            }
+
+            yield return linkCommand;
+
+            // Unlink command (only if member is in a group)
+            if (member.Group != null)
             {
                 yield return new Command_Action
                 {
-                    action = () => member.Group.RemoveMember(member),
                     defaultLabel = "WorkbenchConnect.UnlinkWorkbench".Translate(),
                     defaultDesc = "WorkbenchConnect.UnlinkWorkbenchDesc".Translate(),
                     icon = UnlinkTex,
+                    action = () =>
+                    {
+                        member.Group.RemoveMember(member);
+                        
+                        if (tmpMembers.Count > 1)
+                        {
+                            Messages.Message("WorkbenchConnect.WorkbenchesUnlinked".Translate(tmpMembers.Count), null, MessageTypeDefOf.NeutralEvent, historical: false);
+                        }
+                        else
+                        {
+                            Messages.Message("WorkbenchConnect.WorkbenchUnlinked".Translate(), null, MessageTypeDefOf.NeutralEvent, historical: false);
+                        }
+                    },
                     hotKey = KeyBindingDefOf.Misc2
                 };
 
-                if (member.Group.members.Count > 1)
+                // Select all linked command
+                yield return new Command_Action
                 {
-                    yield return new Command_Action
+                    defaultLabel = "WorkbenchConnect.SelectLinked".Translate(),
+                    defaultDesc = "WorkbenchConnect.SelectLinkedDesc".Translate(),
+                    icon = SelectLinkedTex,
+                    action = () =>
                     {
-                        action = () => SelectLinkedWorkbenches(member),
-                        defaultLabel = "WorkbenchConnect.SelectLinked".Translate(),
-                        defaultDesc = "WorkbenchConnect.SelectLinkedDesc".Translate(),
-                        icon = SelectLinkedTex,
-                        hotKey = KeyBindingDefOf.Misc3
-                    };
-                }
+                        bool playSound = false;
+                        foreach (IWorkbenchGroupMember groupMember in member.Group.members)
+                        {
+                            var selectableThing = groupMember.SelectableThing;
+                            if (selectableThing != null && !Find.Selector.IsSelected(selectableThing))
+                            {
+                                Find.Selector.Select(selectableThing, playSound: false);
+                                playSound = true;
+                            }
+                        }
+                        if (playSound)
+                        {
+                            SoundDefOf.ThingSelected.PlayOneShotOnCamera();
+                        }
+                    },
+                    hotKey = KeyBindingDefOf.Misc3
+                };
             }
         }
 
-        private static void StartLinkingProcess(IWorkbenchGroupMember initiator)
-        {
-            var targetingParams = new TargetingParameters
-            {
-                canTargetBuildings = true,
-                canTargetPawns = false,
-                canTargetItems = false,
-                validator = target => IsValidLinkTarget(initiator, (LocalTargetInfo)target)
-            };
 
-            Find.Targeter.BeginTargeting(targetingParams, target => LinkWorkbenches(initiator, target), null, null, null);
-        }
-
-        private static bool IsValidLinkTarget(IWorkbenchGroupMember initiator, LocalTargetInfo target)
-        {
-            if (!(target.Thing is IWorkbenchGroupMember targetMember))
-                return false;
-
-            if (targetMember == initiator)
-                return false;
-
-            if (targetMember.Map != initiator.Map)
-                return false;
-
-            if (!string.Equals(targetMember.WorkbenchGroupTag, initiator.WorkbenchGroupTag))
-                return false;
-
-            float distance = initiator.Position.DistanceTo(targetMember.Position);
-            if (distance > WorkbenchConnectMod.settings.maxConnectionDistance)
-                return false;
-
-            return true;
-        }
-
-        private static void LinkWorkbenches(IWorkbenchGroupMember initiator, LocalTargetInfo target)
-        {
-            if (!(target.Thing is IWorkbenchGroupMember targetMember))
-                return;
-
-            DebugHelper.Log($"Linking workbenches: {initiator} and {targetMember}");
-
-            var manager = initiator.Map.GetComponent<WorkbenchGroupManager>();
-            if (manager == null)
-                return;
-
-            WorkbenchGroup group;
-
-            if (initiator.Group != null && targetMember.Group != null)
-            {
-                // Both have groups - merge them
-                if (initiator.Group == targetMember.Group)
-                    return; // Already in same group
-
-                group = initiator.Group;
-                var targetGroup = targetMember.Group;
-                
-                // Move all members from target group to initiator group
-                var membersToMove = targetGroup.members.ToList();
-                foreach (var member in membersToMove)
-                {
-                    targetGroup.RemoveMember(member);
-                    group.AddMember(member);
-                }
-            }
-            else if (initiator.Group != null)
-            {
-                // Initiator has group, add target to it
-                group = initiator.Group;
-                group.AddMember(targetMember);
-            }
-            else if (targetMember.Group != null)
-            {
-                // Target has group, add initiator to it
-                group = targetMember.Group;
-                group.AddMember(initiator);
-            }
-            else
-            {
-                // Neither has group, create new one
-                group = manager.NewGroup(initiator);
-                group.AddMember(targetMember);
-            }
-
-            Messages.Message("WorkbenchConnect.WorkbenchesLinked".Translate(), MessageTypeDefOf.PositiveEvent);
-        }
-
-        private static void SelectLinkedWorkbenches(IWorkbenchGroupMember member)
-        {
-            if (member.Group == null)
-                return;
-
-            var selectables = member.Group.members
-                .Where(m => m is Thing thing && thing.Spawned)
-                .Cast<Thing>()
-                .ToList();
-
-            if (selectables.Any())
-            {
-                Find.Selector.ClearSelection();
-                Find.Selector.ClearSelection();
-                foreach (var selectable in selectables)
-                {
-                    Find.Selector.Select(selectable, false, true);
-                }
-            }
-        }
 
         public static void DrawSelectionOverlaysFor(IWorkbenchGroupMember member)
         {
-            if (member?.Group == null || !member.DrawConnectionOverlay)
+            if (member?.Group == null)
+                return;
+
+            // Simple frame tracking - clear if we're starting fresh this frame
+            if (drawnGroupsThisFrame.Count == 0 || Event.current.type == EventType.Repaint)
+            {
+                if (Event.current.type == EventType.Repaint)
+                    drawnGroupsThisFrame.Clear();
+            }
+
+            if (drawnGroupsThisFrame.Contains(member.Group))
                 return;
 
             foreach (var otherMember in member.Group.members)
             {
-                if (otherMember == member || !(otherMember is Thing thing) || !thing.Spawned)
-                    continue;
-
-                GenDraw.DrawLineBetween(
-                    member.Position.ToVector3Shifted(),
-                    otherMember.Position.ToVector3Shifted(),
-                    SimpleColor.Yellow
-                );
+                if (otherMember.DrawConnectionOverlay)
+                {
+                    var selectableThing = otherMember.SelectableThing;
+                    if (selectableThing != null)
+                    {
+                        SelectionDrawer.DrawSelectionBracketFor(selectableThing, GroupedMat);
+                    }
+                }
             }
+            drawnGroupsThisFrame.Add(member.Group);
         }
 
         public static void SetWorkbenchGroup(IWorkbenchGroupMember member, WorkbenchGroup group)

@@ -28,6 +28,7 @@ namespace WorkbenchConnect.Patches
             public IntVec3 Position => workTable.Position;
             public string WorkbenchGroupTag => workTable.def.defName;
             public bool DrawConnectionOverlay => true;
+            public Thing SelectableThing => workTable;
 
             public BillStack BillStack
             {
@@ -81,6 +82,10 @@ namespace WorkbenchConnect.Patches
             var exposeData_original = AccessTools.Method(typeof(Building_WorkTable), "ExposeData");
             var exposeData_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "ExposeData_Postfix");
             harmony.Patch(exposeData_original, postfix: new HarmonyMethod(exposeData_postfix));
+
+            var drawExtraSelectionOverlays_original = AccessTools.Method(typeof(Building), "DrawExtraSelectionOverlays");
+            var drawExtraSelectionOverlays_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "DrawExtraSelectionOverlays_Postfix");
+            harmony.Patch(drawExtraSelectionOverlays_original, postfix: new HarmonyMethod(drawExtraSelectionOverlays_postfix));
         }
 
         public static void SpawnSetup_Postfix(Building_WorkTable __instance)
@@ -124,7 +129,6 @@ namespace WorkbenchConnect.Patches
             if (member.Group != null)
             {
                 __result = member.Group.sharedBillStack;
-                Log.Message($"[WorkbenchConnect] BillStack redirected to shared stack for {__instance.def.defName} at {__instance.Position}");
                 return false;
             }
             return true;
@@ -148,6 +152,15 @@ namespace WorkbenchConnect.Patches
                         WorkbenchGroupUtility.SetWorkbenchGroup(member, group);
                     }
                 }
+            }
+        }
+
+        public static void DrawExtraSelectionOverlays_Postfix(Building __instance)
+        {
+            if (__instance is Building_WorkTable workTable)
+            {
+                var member = GetMemberData(workTable);
+                WorkbenchGroupUtility.DrawSelectionOverlaysFor(member);
             }
         }
     }

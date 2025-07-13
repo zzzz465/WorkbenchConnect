@@ -11,6 +11,7 @@ namespace WorkbenchConnect.Core
         string WorkbenchGroupTag { get; }
         bool DrawConnectionOverlay { get; }
         IntVec3 Position { get; }
+        Thing SelectableThing { get; }
         
         void Notify_GroupChanged();
     }
