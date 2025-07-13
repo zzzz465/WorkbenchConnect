@@ -5,15 +5,18 @@
     <WorkbenchConnect.LinkWorkbenchDesc>Link this workbench to other workbenches of the same type to share bills.</WorkbenchConnect.LinkWorkbenchDesc>
     <WorkbenchConnect.UnlinkWorkbench>Unlink workbench</WorkbenchConnect.UnlinkWorkbench>
     <WorkbenchConnect.UnlinkWorkbenchDesc>Unlink this workbench from its current group.</WorkbenchConnect.UnlinkWorkbenchDesc>
-    <WorkbenchConnect.SelectLinkedWorkbenches>Select linked workbenches</WorkbenchConnect.SelectLinkedWorkbenches>
-    <WorkbenchConnect.SelectLinkedWorkbenchesDesc>Select all workbenches linked to this one.</WorkbenchConnect.SelectLinkedWorkbenchesDesc>
+    <WorkbenchConnect.SelectLinked>Select linked</WorkbenchConnect.SelectLinked>
+    <WorkbenchConnect.SelectLinkedDesc>Select all workbenches linked to this one.</WorkbenchConnect.SelectLinkedDesc>
 
     <!-- Messages -->
     <WorkbenchConnect.WorkbenchLinked>Workbench linked.</WorkbenchConnect.WorkbenchLinked>
-    <WorkbenchConnect.WorkbenchesLinked>{0} workbenches linked.</WorkbenchConnect.WorkbenchesLinked>
     <WorkbenchConnect.WorkbenchUnlinked>Workbench unlinked.</WorkbenchConnect.WorkbenchUnlinked>
-    <WorkbenchConnect.WorkbenchesUnlinked>{0} workbenches unlinked.</WorkbenchConnect.WorkbenchesUnlinked>
 
     <!-- Error messages -->
     <WorkbenchConnect.BillReservedByOtherPawn>Bill is being worked on by another pawn</WorkbenchConnect.BillReservedByOtherPawn>
+    <WorkbenchConnect.LinkDisabledSelectTwo>Select at least two workbenches of the same type</WorkbenchConnect.LinkDisabledSelectTwo>
+    <WorkbenchConnect.AlreadyLinked>Workbenches are already linked</WorkbenchConnect.AlreadyLinked>
+
+    <!-- Default names -->
+    <WorkbenchConnect.GroupDefaultName>Workbench Group</WorkbenchConnect.GroupDefaultName>
 </LanguageData>
