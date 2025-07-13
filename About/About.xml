@@ -6,12 +6,17 @@
     <li>1.6</li>
   </supportedVersions>
   <packageId>jungooji.workbenchconnect</packageId>
-  <description>
-Connect multiple workbenches to share bills between them.
+  <description>Connect multiple workbenches to share bills between them.
+
+when you add/update/delete bill to a workbench, it will be shared with all linked workbenches.
+
 Should be compatible with any mods.
 
 safe to add mid-game.
-when removing mod, make sure you removed all links.
+when removing mod, make sure you removed all links before removing mod.
+if you already removed mod, try save - load again. errors should be fixed.
+
+source: https://github.com/zzzz465/WorkbenchConnect
 </description>
   <modDependencies>
     <li>
