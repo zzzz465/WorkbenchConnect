@@ -39,10 +39,29 @@ namespace WorkbenchConnect.Core
             }
         }
 
+        // Check if a bill requires reservation (has specific ownership requirements)
+        private bool DoesBillRequireReservation(Bill bill)
+        {
+            if (bill == null) return false;
+            
+            // Only reserve bills that have ownership requirements
+            // Bills like cooking simple meals don't need reservations
+            return bill.PawnRestriction != null ||
+                   bill.SlavesOnly ||
+                   bill.MechsOnly ||
+                   bill.NonMechsOnly;
+        }
+
         // Check if a bill is available for a pawn to work on
         public bool CanPawnWorkOnBill(Bill bill, Pawn pawn)
         {
             if (bill == null || pawn == null) return false;
+            
+            // Skip reservation system for bills that don't require it
+            if (!DoesBillRequireReservation(bill))
+            {
+                return true;
+            }
             
             // Clean up stale reservations first
             CleanupStaleReservations();
@@ -61,6 +80,12 @@ namespace WorkbenchConnect.Core
         {
             if (bill == null || pawn == null) return false;
             
+            // Skip reservation system for bills that don't require it
+            if (!DoesBillRequireReservation(bill))
+            {
+                return true;
+            }
+            
             CleanupStaleReservations();
             
             if (billReservations.TryGetValue(bill, out Pawn existingPawn))
@@ -77,6 +102,12 @@ namespace WorkbenchConnect.Core
         public void ReleaseBillReservation(Bill bill, Pawn pawn)
         {
             if (bill == null || pawn == null) return;
+            
+            // Skip reservation system for bills that don't require it
+            if (!DoesBillRequireReservation(bill))
+            {
+                return;
+            }
             
             if (billReservations.TryGetValue(bill, out Pawn reservedPawn) && reservedPawn == pawn)
             {
