@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Verse;
+using WorkbenchConnect.Patches;
 
 namespace WorkbenchConnect
 {
@@ -13,7 +14,7 @@ namespace WorkbenchConnect
             settings = GetSettings<WorkbenchConnectSettings>();
             
             var harmony = new Harmony("jungooji.workbenchconnect");
-            harmony.PatchAll();
+            Building_WorkTable_Patches.Patch(harmony);
             
             Log.Message("[WorkbenchConnect] Mod loaded successfully");
         }
