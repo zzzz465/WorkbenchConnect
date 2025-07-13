@@ -107,14 +107,7 @@ namespace WorkbenchConnect.Core
                         SetWorkbenchGroup(tmpMember, group);
                     }
                     
-                    if (tmpMembers.Count > 1)
-                    {
-                        Messages.Message("WorkbenchConnect.WorkbenchesLinked".Translate(tmpMembers.Count), null, MessageTypeDefOf.NeutralEvent, historical: false);
-                    }
-                    else
-                    {
-                        Messages.Message("WorkbenchConnect.WorkbenchLinked".Translate(), null, MessageTypeDefOf.NeutralEvent, historical: false);
-                    }
+                    Messages.Message("WorkbenchConnect.WorkbenchLinked".Translate(), null, MessageTypeDefOf.NeutralEvent, historical: false);
                 },
                 hotKey = KeyBindingDefOf.Misc1
             };
@@ -140,14 +133,10 @@ namespace WorkbenchConnect.Core
                     icon = UnlinkTex,
                     action = () =>
                     {
-                        member.Group.RemoveMember(member);
-                        
-                        if (tmpMembers.Count > 1)
+                        // Check if member still has a group (might have been dissolved or changed)
+                        if (member.Group != null)
                         {
-                            Messages.Message("WorkbenchConnect.WorkbenchesUnlinked".Translate(tmpMembers.Count), null, MessageTypeDefOf.NeutralEvent, historical: false);
-                        }
-                        else
-                        {
+                            member.Group.RemoveMember(member);
                             Messages.Message("WorkbenchConnect.WorkbenchUnlinked".Translate(), null, MessageTypeDefOf.NeutralEvent, historical: false);
                         }
                     },
@@ -162,19 +151,23 @@ namespace WorkbenchConnect.Core
                     icon = SelectLinkedTex,
                     action = () =>
                     {
-                        bool playSound = false;
-                        foreach (IWorkbenchGroupMember groupMember in member.Group.members)
+                        // Check if member still has a group (might have been dissolved or changed)
+                        if (member.Group?.members != null)
                         {
-                            var selectableThing = groupMember.SelectableThing;
-                            if (selectableThing != null && !Find.Selector.IsSelected(selectableThing))
+                            bool playSound = false;
+                            foreach (IWorkbenchGroupMember groupMember in member.Group.members)
                             {
-                                Find.Selector.Select(selectableThing, playSound: false);
-                                playSound = true;
+                                var selectableThing = groupMember.SelectableThing;
+                                if (selectableThing != null && !Find.Selector.IsSelected(selectableThing))
+                                {
+                                    Find.Selector.Select(selectableThing, playSound: false);
+                                    playSound = true;
+                                }
                             }
-                        }
-                        if (playSound)
-                        {
-                            SoundDefOf.ThingSelected.PlayOneShotOnCamera();
+                            if (playSound)
+                            {
+                                SoundDefOf.ThingSelected.PlayOneShotOnCamera();
+                            }
                         }
                     },
                     hotKey = KeyBindingDefOf.Misc3
