@@ -13,7 +13,7 @@ namespace WorkbenchConnect.Patches
     {
         private static readonly Dictionary<Building_WorkTable, WorkbenchGroupMemberData> memberData = [];
 
-        private class WorkbenchGroupMemberData : IWorkbenchGroupMember
+        private class WorkbenchGroupMemberData : IWorkbenchGroupMember, ILoadReferenceable
         {
             public Building_WorkTable workTable;
             public WorkbenchGroup group;
@@ -39,6 +39,8 @@ namespace WorkbenchConnect.Patches
             public Thing SelectableThing => workTable;
 
             public BillStack BillStack => workTable.billStack;
+
+            public string GetUniqueLoadID() => $"WorkbenchGroupMemberData_{workTable.thingIDNumber}";
 
             private void UpdateBillStackReference(WorkbenchGroup oldGroup)
             {
