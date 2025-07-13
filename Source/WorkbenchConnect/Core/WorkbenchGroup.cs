@@ -33,12 +33,9 @@ namespace WorkbenchConnect.Core
                 // During loading, don't validate member count since members haven't been added yet
                 if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.ResolvingCrossRefs || Scribe.mode == LoadSaveMode.PostLoadInit)
                 {
-                    DebugHelper.Log($"[DEBUG] Group {loadID} Valid check during {Scribe.mode} - returning true");
                     return true;
                 }
-                bool isValid = members.Count > 1 && members.All(m => m?.Map != null);
-                DebugHelper.Log($"[DEBUG] Group {loadID} Valid check during {Scribe.mode} - members={members.Count}, returning {isValid}");
-                return isValid;
+                return members.Count > 1 && members.All(m => m?.Map != null);
             }
         }
 
@@ -162,12 +159,11 @@ namespace WorkbenchConnect.Core
             if (sharedBillStack == null)
             {
                 sharedBillStack = new BillStack(member.SelectableThing as IBillGiver);
-                DebugHelper.Log($"[DEBUG] Created new sharedBillStack for group {loadID}");
                 
                 // Restore saved bills if available (this happens during save loading)
                 if (restoredBills != null)
                 {
-                    DebugHelper.Log($"[DEBUG] Restoring {restoredBills.Count} bills to group {loadID}");
+                    DebugHelper.Log($"Restoring {restoredBills.Count} bills to group {loadID}");
                     foreach (var bill in restoredBills)
                     {
                         // Ensure bill has proper billStack reference to prevent null reference errors
@@ -176,15 +172,8 @@ namespace WorkbenchConnect.Core
                         // Ensure bill has proper billStack reference (essential during loading)
                         var billStackField = AccessTools.Field(typeof(Bill), "billStack");
                         billStackField?.SetValue(bill, sharedBillStack);
-                        
-                        DebugHelper.Log($"[DEBUG] Restored bill: {bill.Label} to group {loadID}");
                     }
-                    DebugHelper.Log($"[DEBUG] After restoration, sharedBillStack has {sharedBillStack.Bills.Count} bills");
                     restoredBills = null; // Clear after restoration
-                }
-                else
-                {
-                    DebugHelper.Log($"[DEBUG] No restoredBills to restore for group {loadID}");
                 }
             }
             else
@@ -280,8 +269,6 @@ namespace WorkbenchConnect.Core
 
         public void ExposeData()
         {
-            DebugHelper.Log($"[DEBUG] WorkbenchGroup.ExposeData() - Mode: {Scribe.mode}, LoadID: {loadID}, Label: '{groupLabel}', Members: {members?.Count ?? 0}, Map: {Map}");
-            
             Scribe_Values.Look(ref loadID, "loadID", 0);
             Scribe_Values.Look(ref groupLabel, "groupLabel", "");
             // Don't save members list - it will be reconstructed from individual workbenches
@@ -290,25 +277,13 @@ namespace WorkbenchConnect.Core
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 restoredBills = sharedBillStack?.Bills?.ToList();
-                DebugHelper.Log($"[DEBUG] Saving group {loadID} with {restoredBills?.Count ?? 0} bills");
-                if (restoredBills != null)
-                {
-                    foreach (var bill in restoredBills)
-                    {
-                        DebugHelper.Log($"[DEBUG] Saving bill: {bill.Label} in group {loadID}");
-                    }
-                }
+                DebugHelper.Log($"Saving group {loadID} with {restoredBills?.Count ?? 0} bills");
             }
             Scribe_Collections.Look(ref restoredBills, "savedBills", LookMode.Deep);
 
-            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.ResolvingCrossRefs)
-            {
-                DebugHelper.Log($"[DEBUG] During {Scribe.mode}, group {loadID} has {restoredBills?.Count ?? 0} bills");
-            }
-
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                DebugHelper.Log($"[DEBUG] Loading group {loadID} - got {restoredBills?.Count ?? 0} bills");
+                DebugHelper.Log($"Loading group {loadID} - got {restoredBills?.Count ?? 0} bills");
                 
                 if (members == null)
                     members = [];
@@ -316,23 +291,7 @@ namespace WorkbenchConnect.Core
                 // Initialize bill reservations dictionary
                 if (billReservations == null)
                     billReservations = new Dictionary<Bill, Pawn>();
-                
-                // Bills are already in restoredBills, ready for member restoration
-                if (restoredBills != null)
-                {
-                    DebugHelper.Log($"[DEBUG] {restoredBills.Count} bills ready for restoration in group {loadID}");
-                    foreach (var bill in restoredBills)
-                    {
-                        DebugHelper.Log($"[DEBUG] Loaded bill: {bill.Label} for group {loadID}");
-                    }
-                }
-                else
-                {
-                    DebugHelper.Log($"[DEBUG] No bills loaded for group {loadID}");
-                }
             }
-            
-
         }
     }
 }

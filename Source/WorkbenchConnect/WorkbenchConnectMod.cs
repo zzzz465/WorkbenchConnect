@@ -36,12 +36,10 @@ namespace WorkbenchConnect
     public class WorkbenchConnectSettings : ModSettings
     {
         public bool enableDebugLogging = false;
-        public float maxConnectionDistance = 10f;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
-            Scribe_Values.Look(ref maxConnectionDistance, "maxConnectionDistance", 10f);
             base.ExposeData();
         }
 
@@ -51,8 +49,6 @@ namespace WorkbenchConnect
             listingStandard.Begin(inRect);
 
             listingStandard.CheckboxLabeled("Enable debug logging", ref enableDebugLogging);
-            listingStandard.Label($"Max connection distance: {maxConnectionDistance:F1}");
-            maxConnectionDistance = listingStandard.Slider(maxConnectionDistance, 1f, 50f);
 
             listingStandard.End();
         }

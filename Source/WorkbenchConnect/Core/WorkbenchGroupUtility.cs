@@ -225,20 +225,5 @@ namespace WorkbenchConnect.Core
                 group.AddMember(member);
             }
         }
-
-        public static bool CanFormGroupWith(IWorkbenchGroupMember a, IWorkbenchGroupMember b)
-        {
-            if (a == null || b == null || a == b)
-                return false;
-
-            if (a.Map != b.Map)
-                return false;
-
-            if (!string.Equals(a.WorkbenchGroupTag, b.WorkbenchGroupTag))
-                return false;
-
-            float distance = a.Position.DistanceTo(b.Position);
-            return distance <= WorkbenchConnectMod.settings.maxConnectionDistance;
-        }
     }
 }

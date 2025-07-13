@@ -12,7 +12,6 @@ namespace WorkbenchConnect.Core
 
         public WorkbenchGroupManager(Map map) : base(map)
         {
-            DebugHelper.Log($"[DEBUG] WorkbenchGroupManager constructor called for map {map}");
         }
 
         public IEnumerable<WorkbenchGroup> Groups => groups.AsReadOnly();
@@ -93,32 +92,16 @@ namespace WorkbenchConnect.Core
 
         public WorkbenchGroup GetGroupByID(int id)
         {
-            DebugHelper.Log($"[DEBUG] GetGroupByID({id}) called - have {groups?.Count ?? 0} groups");
-            if (groups != null)
-            {
-                for (int i = 0; i < groups.Count; i++)
-                {
-                    DebugHelper.Log($"[DEBUG]   Group {i}: ID={groups[i]?.loadID ?? -999}, Label={groups[i]?.groupLabel ?? "null"}");
-                }
-            }
-            var result = groups?.FirstOrDefault(g => g.loadID == id);
-            DebugHelper.Log($"[DEBUG] GetGroupByID({id}) returning {(result != null ? "found" : "null")}");
-            return result;
+            return groups?.FirstOrDefault(g => g.loadID == id);
         }
 
         public override void ExposeData()
         {
             base.ExposeData();
             
-            DebugHelper.Log($"[DEBUG] WorkbenchGroupManager.ExposeData() - Mode: {Scribe.mode}, Groups count: {groups?.Count ?? 0}, Map: {map}");
-            
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                DebugHelper.Log($"Saving {groups.Count} workbench groups:");
-                for (int i = 0; i < groups.Count; i++)
-                {
-                    DebugHelper.Log($"  Group {i}: ID={groups[i].loadID}, Members={groups[i].members.Count}, Bills={groups[i].sharedBillStack?.Bills?.Count ?? 0}");
-                }
+                DebugHelper.Log($"Saving {groups.Count} workbench groups");
             }
             
             Scribe_Values.Look(ref nextGroupID, "nextGroupID", 1);
@@ -126,19 +109,18 @@ namespace WorkbenchConnect.Core
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                DebugHelper.Log($"[DEBUG] WorkbenchGroupManager PostLoadInit START - Groups={groups?.Count ?? 0}, NextGroupID={nextGroupID}");
+                DebugHelper.Log($"After loading: Groups={groups?.Count ?? 0}, NextGroupID={nextGroupID}");
                 
                 if (groups == null)
                     groups = [];
 
                 // Clean up invalid groups and update next ID
                 int originalCount = groups.Count;
-                DebugHelper.Log($"[DEBUG] Before cleanup - checking {originalCount} groups for validity");
                 groups.RemoveAll(g => g == null || !g.Valid);
                 
                 if (originalCount != groups.Count)
                 {
-                    DebugHelper.Log($"[DEBUG] Removed {originalCount - groups.Count} invalid groups");
+                    DebugHelper.Log($"Removed {originalCount - groups.Count} invalid groups");
                 }
                 
                 if (groups.Any())
@@ -146,11 +128,7 @@ namespace WorkbenchConnect.Core
                     nextGroupID = groups.Max(g => g.loadID) + 1;
                 }
 
-                DebugHelper.Log($"[DEBUG] WorkbenchGroupManager PostLoadInit END - Final loaded groups: {groups.Count}");
-                for (int i = 0; i < groups.Count; i++)
-                {
-                    DebugHelper.Log($"[DEBUG]   Loaded Group {i}: ID={groups[i].loadID}, Label={groups[i].groupLabel}");
-                }
+                DebugHelper.Log($"Final loaded groups: {groups.Count}");
             }
         }
 
