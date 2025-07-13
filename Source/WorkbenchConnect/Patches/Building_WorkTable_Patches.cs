@@ -105,8 +105,9 @@ namespace WorkbenchConnect.Patches
 
 
             var exposeData_original = AccessTools.Method(typeof(Building_WorkTable), "ExposeData");
+            var exposeData_prefix = AccessTools.Method(typeof(Building_WorkTable_Patches), "ExposeData_Prefix");
             var exposeData_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "ExposeData_Postfix");
-            harmony.Patch(exposeData_original, postfix: new HarmonyMethod(exposeData_postfix));
+            harmony.Patch(exposeData_original, prefix: new HarmonyMethod(exposeData_prefix), postfix: new HarmonyMethod(exposeData_postfix));
 
             var drawExtraSelectionOverlays_original = AccessTools.Method(typeof(Building), "DrawExtraSelectionOverlays");
             var drawExtraSelectionOverlays_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "DrawExtraSelectionOverlays_Postfix");
@@ -150,23 +151,52 @@ namespace WorkbenchConnect.Patches
 
 
 
+        private static readonly Dictionary<Building_WorkTable, BillStack> temporaryBillStacks = [];
+
+        public static void ExposeData_Prefix(Building_WorkTable __instance)
+        {
+            var member = GetMemberData(__instance);
+            
+            // During saving, temporarily set billStack to null for grouped workbenches
+            if (member.Group != null && Scribe.mode == LoadSaveMode.Saving)
+            {
+                // Store original billStack and set to null
+                temporaryBillStacks[__instance] = __instance.billStack;
+                __instance.billStack = null;
+            }
+        }
+
         public static void ExposeData_Postfix(Building_WorkTable __instance)
         {
-            if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.LoadingVars)
+            var member = GetMemberData(__instance);
+
+            // Restore original billStack after saving
+            if (temporaryBillStacks.TryGetValue(__instance, out var originalBillStack))
             {
-                var member = GetMemberData(__instance);
+                __instance.billStack = originalBillStack;
+                temporaryBillStacks.Remove(__instance);
+            }
 
-                int groupID = member.Group?.loadID ?? -1;
-                Scribe_Values.Look(ref groupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
+            int groupID = member.Group?.loadID ?? -1;
+            Scribe_Values.Look(ref groupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
 
-                if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID != -1)
+            if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID != -1)
+            {
+                var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
+                var group = manager?.GetGroupByID(groupID);
+                if (group != null)
                 {
-                    var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
-                    var group = manager?.GetGroupByID(groupID);
-                    if (group != null)
-                    {
-                        WorkbenchGroupUtility.SetWorkbenchGroup(member, group);
-                    }
+                    // Add this member to the group (this will set the shared billStack)
+                    group.AddMember(member);
+                    DebugHelper.Log($"Restored workbench {__instance.def.defName} to group {groupID}");
+                }
+            }
+            else if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID == -1)
+            {
+                // For ungrouped workbenches, ensure they have a proper billStack
+                if (__instance.billStack == null)
+                {
+                    __instance.billStack = new BillStack(__instance);
                 }
             }
         }

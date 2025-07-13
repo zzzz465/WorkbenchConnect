@@ -12,6 +12,7 @@ namespace WorkbenchConnect.Core
         public List<IWorkbenchGroupMember> members = [];
         public BillStack sharedBillStack;
         public string groupLabel = "";
+        private List<Bill> restoredBills = null;
         
         public Map Map
         {
@@ -57,6 +58,16 @@ namespace WorkbenchConnect.Core
             if (sharedBillStack == null)
             {
                 sharedBillStack = new BillStack(member.SelectableThing as IBillGiver);
+                
+                // Restore saved bills if available
+                if (restoredBills != null)
+                {
+                    foreach (var bill in restoredBills)
+                    {
+                        sharedBillStack.AddBill(bill);
+                    }
+                    restoredBills = null; // Clear after restoration
+                }
             }
             
             // Migrate existing bills to shared stack BEFORE setting Group property
@@ -138,36 +149,26 @@ namespace WorkbenchConnect.Core
         {
             Scribe_Values.Look(ref loadID, "loadID", 0);
             Scribe_Values.Look(ref groupLabel, "groupLabel", "");
-            Scribe_Collections.Look(ref members, "members", LookMode.Reference);
-            Scribe_Deep.Look(ref sharedBillStack, "sharedBillStack");
+            // Don't save members list - it will be reconstructed from individual workbenches
+            
+            // Save bills separately, not as a BillStack
+            List<Bill> savedBills = null;
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                savedBills = sharedBillStack?.Bills?.ToList();
+            }
+            Scribe_Collections.Look(ref savedBills, "savedBills", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (members == null)
                     members = [];
                 
-                if (sharedBillStack == null && members.Any())
+                // Restore bills when first member is added
+                if (savedBills != null)
                 {
-                    // Initialize with first available member as billGiver
-                    var firstMember = members.First();
-                    sharedBillStack = new BillStack(firstMember.SelectableThing as IBillGiver);
-                }
-
-                // Clean up null members
-                members.RemoveAll(m => m == null);
-                
-                // Notify all members of their group
-                foreach (var member in members)
-                {
-                    member.Group = this;
-                    member.Notify_GroupChanged();
-                }
-
-                // Remove invalid groups
-                if (!Valid)
-                {
-                    DebugHelper.Warning($"Loaded invalid workbench group, dissolving");
-                    Dissolve();
+                    // Store the saved bills for later restoration
+                    restoredBills = savedBills;
                 }
             }
         }
