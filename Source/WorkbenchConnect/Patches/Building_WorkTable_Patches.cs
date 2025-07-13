@@ -21,7 +21,15 @@ namespace WorkbenchConnect.Patches
             public WorkbenchGroup Group
             {
                 get => group;
-                set => group = value;
+                set
+                {
+                    if (group != value)
+                    {
+                        var oldGroup = group;
+                        group = value;
+                        UpdateBillStackReference(oldGroup);
+                    }
+                }
             }
 
             public Map Map => workTable.Map;
@@ -30,13 +38,30 @@ namespace WorkbenchConnect.Patches
             public bool DrawConnectionOverlay => true;
             public Thing SelectableThing => workTable;
 
-            public BillStack BillStack
+            public BillStack BillStack => workTable.billStack;
+
+            private void UpdateBillStackReference(WorkbenchGroup oldGroup)
             {
-                get
+                if (group != null)
                 {
-                    if (group != null)
-                        return group.sharedBillStack;
-                    return workTable.BillStack;
+                    // Replace with shared bill stack
+                    workTable.billStack = group.sharedBillStack;
+                }
+                else
+                {
+                    // Create new bill stack when ungrouping
+                    var newBillStack = new BillStack(workTable);
+                    
+                    // Copy bills from shared stack if there was an old group
+                    if (oldGroup?.sharedBillStack != null)
+                    {
+                        foreach (var bill in oldGroup.sharedBillStack.Bills.ToList())
+                        {
+                            newBillStack.AddBill(bill.Clone());
+                        }
+                    }
+                    
+                    workTable.billStack = newBillStack;
                 }
             }
 
@@ -75,9 +100,7 @@ namespace WorkbenchConnect.Patches
             var getGizmos_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "GetGizmos_Postfix");
             harmony.Patch(getGizmos_original, postfix: new HarmonyMethod(getGizmos_postfix));
 
-            var billStack_original = AccessTools.PropertyGetter(typeof(Building_WorkTable), "BillStack");
-            var billStack_prefix = AccessTools.Method(typeof(Building_WorkTable_Patches), "BillStack_Prefix");
-            harmony.Patch(billStack_original, prefix: new HarmonyMethod(billStack_prefix));
+
 
             var exposeData_original = AccessTools.Method(typeof(Building_WorkTable), "ExposeData");
             var exposeData_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "ExposeData_Postfix");
@@ -123,16 +146,7 @@ namespace WorkbenchConnect.Patches
             }
         }
 
-        public static bool BillStack_Prefix(Building_WorkTable __instance, ref BillStack __result)
-        {
-            var member = GetMemberData(__instance);
-            if (member.Group != null)
-            {
-                __result = member.Group.sharedBillStack;
-                return false;
-            }
-            return true;
-        }
+
 
         public static void ExposeData_Postfix(Building_WorkTable __instance)
         {

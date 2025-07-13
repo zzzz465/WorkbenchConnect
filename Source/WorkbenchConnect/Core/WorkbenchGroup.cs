@@ -10,7 +10,7 @@ namespace WorkbenchConnect.Core
     {
         public int loadID = -1;
         public List<IWorkbenchGroupMember> members = [];
-        public BillStack sharedBillStack = new BillStack(null);
+        public BillStack sharedBillStack;
         public string groupLabel = "";
         
         public Map Map
@@ -31,10 +31,14 @@ namespace WorkbenchConnect.Core
 
         public WorkbenchGroup()
         {
+            // Will be initialized when first member is added
         }
 
         public WorkbenchGroup(IWorkbenchGroupMember founder)
         {
+            // Initialize shared bill stack with the founder as billGiver
+            sharedBillStack = new BillStack(founder.SelectableThing as IBillGiver);
+            
             members.Add(founder);
             founder.Group = this;
             groupLabel = GetNewGroupLabel();
@@ -49,19 +53,25 @@ namespace WorkbenchConnect.Core
 
             DebugHelper.Log($"Adding member to workbench group: {member}");
             
-            // If member has existing bills, migrate them to shared stack
+            // Initialize shared bill stack if not already done
+            if (sharedBillStack == null)
+            {
+                sharedBillStack = new BillStack(member.SelectableThing as IBillGiver);
+            }
+            
+            // Migrate existing bills to shared stack BEFORE setting Group property
+            // (because setting Group will replace the billStack field)
             if (member.BillStack?.Bills?.Any() == true)
             {
                 var billsToMigrate = member.BillStack.Bills.ToList();
                 foreach (var bill in billsToMigrate)
                 {
-                    member.BillStack.Delete(bill);
                     sharedBillStack.AddBill(bill);
                 }
             }
 
             members.Add(member);
-            member.Group = this;
+            member.Group = this; // This will replace member's billStack with sharedBillStack
             member.Notify_GroupChanged();
             
             NotifyMembersChanged();
@@ -93,23 +103,17 @@ namespace WorkbenchConnect.Core
         {
             DebugHelper.Log($"Dissolving workbench group with {members.Count} members");
             
-            // If there's a remaining member, give them the shared bills
-            var remainingMember = members.FirstOrDefault();
-            if (remainingMember != null && sharedBillStack.Bills.Any())
-            {
-                var billsToMigrate = sharedBillStack.Bills.ToList();
-                foreach (var bill in billsToMigrate)
-                {
-                    sharedBillStack.Delete(bill);
-                    remainingMember.BillStack.AddBill(bill);
-                }
-            }
-
-            // Clear all member references
+            // Clear all member references first (this will create individual bill stacks with copied bills)
             foreach (var member in members.ToList())
             {
                 member.Group = null;
                 member.Notify_GroupChanged();
+            }
+            
+            // Clear the shared bill stack directly (avoid Delete() which needs valid billGiver)
+            if (sharedBillStack != null)
+            {
+                sharedBillStack.Bills.Clear();
             }
             
             members.Clear();
@@ -142,8 +146,12 @@ namespace WorkbenchConnect.Core
                 if (members == null)
                     members = [];
                 
-                if (sharedBillStack == null)
-                    sharedBillStack = new BillStack(null);
+                if (sharedBillStack == null && members.Any())
+                {
+                    // Initialize with first available member as billGiver
+                    var firstMember = members.First();
+                    sharedBillStack = new BillStack(firstMember.SelectableThing as IBillGiver);
+                }
 
                 // Clean up null members
                 members.RemoveAll(m => m == null);
