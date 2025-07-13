@@ -15,6 +15,7 @@ namespace WorkbenchConnect
             
             var harmony = new Harmony("jungooji.workbenchconnect");
             Building_WorkTable_Patches.Patch(harmony);
+            WorkGiver_DoBill_Patches.Patch(harmony);
             
             Log.Message("[WorkbenchConnect] Mod loaded successfully");
         }

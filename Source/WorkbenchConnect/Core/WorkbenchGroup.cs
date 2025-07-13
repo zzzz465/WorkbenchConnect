@@ -14,6 +14,9 @@ namespace WorkbenchConnect.Core
         public string groupLabel = "";
         private List<Bill> restoredBills = null;
         
+        // Bill reservation system to prevent multiple pawns working on same bill
+        private Dictionary<Bill, Pawn> billReservations = new Dictionary<Bill, Pawn>();
+        
         public Map Map
         {
             get
@@ -27,6 +30,80 @@ namespace WorkbenchConnect.Core
             get
             {
                 return members.Count > 1 && members.All(m => m?.Map != null);
+            }
+        }
+
+        // Check if a bill is available for a pawn to work on
+        public bool CanPawnWorkOnBill(Bill bill, Pawn pawn)
+        {
+            if (bill == null || pawn == null) return false;
+            
+            // Clean up stale reservations first
+            CleanupStaleReservations();
+            
+            // Check if bill is already reserved by another pawn
+            if (billReservations.TryGetValue(bill, out Pawn reservedPawn))
+            {
+                return reservedPawn == pawn;
+            }
+            
+            return true;
+        }
+
+        // Reserve a bill for a pawn
+        public bool TryReserveBill(Bill bill, Pawn pawn)
+        {
+            if (bill == null || pawn == null) return false;
+            
+            CleanupStaleReservations();
+            
+            if (billReservations.TryGetValue(bill, out Pawn existingPawn))
+            {
+                return existingPawn == pawn;
+            }
+            
+            billReservations[bill] = pawn;
+            DebugHelper.Log($"Bill reserved: {bill.LabelCap} by {pawn.LabelShort}");
+            return true;
+        }
+
+        // Release a bill reservation
+        public void ReleaseBillReservation(Bill bill, Pawn pawn)
+        {
+            if (bill == null || pawn == null) return;
+            
+            if (billReservations.TryGetValue(bill, out Pawn reservedPawn) && reservedPawn == pawn)
+            {
+                billReservations.Remove(bill);
+                DebugHelper.Log($"Bill reservation released: {bill.LabelCap} by {pawn.LabelShort}");
+            }
+        }
+
+        // Clean up reservations for pawns that are no longer valid
+        private void CleanupStaleReservations()
+        {
+            var keysToRemove = new List<Bill>();
+            
+            foreach (var kvp in billReservations)
+            {
+                var bill = kvp.Key;
+                var pawn = kvp.Value;
+                
+                // Remove if bill is deleted or pawn is invalid
+                if (bill.DeletedOrDereferenced || pawn == null || pawn.Destroyed || !pawn.Spawned || pawn.Dead)
+                {
+                    keysToRemove.Add(bill);
+                }
+                // Remove if pawn is no longer doing a DoBill job
+                else if (pawn.CurJob?.def != JobDefOf.DoBill || pawn.CurJob?.bill != bill)
+                {
+                    keysToRemove.Add(bill);
+                }
+            }
+            
+            foreach (var key in keysToRemove)
+            {
+                billReservations.Remove(key);
             }
         }
 
@@ -163,6 +240,10 @@ namespace WorkbenchConnect.Core
             {
                 if (members == null)
                     members = [];
+                
+                // Initialize bill reservations dictionary
+                if (billReservations == null)
+                    billReservations = new Dictionary<Bill, Pawn>();
                 
                 // Restore bills when first member is added
                 if (savedBills != null)
