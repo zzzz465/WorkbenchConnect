@@ -65,15 +65,29 @@ namespace WorkbenchConnect.Patches
             var despawn_original = AccessTools.Method(typeof(Building), "DeSpawn");
             var despawn_prefix = AccessTools.Method(typeof(Building_WorkTable_Patches), "DeSpawn_Prefix");
             harmony.Patch(despawn_original, prefix: new HarmonyMethod(despawn_prefix));
+
+            var spawnSetup_original = AccessTools.Method(typeof(Building_WorkTable), "SpawnSetup");
+            var spawnSetup_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "SpawnSetup_Postfix");
+            harmony.Patch(spawnSetup_original, postfix: new HarmonyMethod(spawnSetup_postfix));
+
+            var getGizmos_original = AccessTools.Method(typeof(Building), "GetGizmos");
+            var getGizmos_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "GetGizmos_Postfix");
+            harmony.Patch(getGizmos_original, postfix: new HarmonyMethod(getGizmos_postfix));
+
+            var billStack_original = AccessTools.PropertyGetter(typeof(Building_WorkTable), "BillStack");
+            var billStack_prefix = AccessTools.Method(typeof(Building_WorkTable_Patches), "BillStack_Prefix");
+            harmony.Patch(billStack_original, prefix: new HarmonyMethod(billStack_prefix));
+
+            var exposeData_original = AccessTools.Method(typeof(Building_WorkTable), "ExposeData");
+            var exposeData_postfix = AccessTools.Method(typeof(Building_WorkTable_Patches), "ExposeData_Postfix");
+            harmony.Patch(exposeData_original, postfix: new HarmonyMethod(exposeData_postfix));
         }
 
-        // [HarmonyPostfix]
-        // [HarmonyPatch(nameof(Building_WorkTable.SpawnSetup))]
-        // public static void SpawnSetup_Postfix(Building_WorkTable __instance)
-        // {
-        //     var member = GetMemberData(__instance);
-        //     DebugHelper.Log($"Workbench spawned: {__instance.def.defName} at {__instance.Position}");
-        // }
+        public static void SpawnSetup_Postfix(Building_WorkTable __instance)
+        {
+            var member = GetMemberData(__instance);
+            DebugHelper.Log($"Workbench spawned: {__instance.def.defName} at {__instance.Position}");
+        }
 
         public static void DeSpawn_Prefix(Building __instance)
         {
@@ -91,54 +105,50 @@ namespace WorkbenchConnect.Patches
             }
         }
 
-        // [HarmonyPostfix]
-        // [HarmonyPatch(nameof(Building_WorkTable.GetGizmos))]
-        // public static IEnumerable<Gizmo> GetGizmos_Postfix(IEnumerable<Gizmo> __result, Building_WorkTable __instance)
-        // {
-        //     foreach (var gizmo in __result)
-        //         yield return gizmo;
+        public static IEnumerable<Gizmo> GetGizmos_Postfix(IEnumerable<Gizmo> __result, Building __instance)
+        {
+            foreach (var gizmo in __result)
+                yield return gizmo;
 
-        //     if (__instance.Faction == Faction.OfPlayer)
-        //     {
-        //         var member = GetMemberData(__instance);
-        //         foreach (var gizmo in WorkbenchGroupUtility.WorkbenchGroupMemberGizmos(member))
-        //             yield return gizmo;
-        //     }
-        // }
+            if (__instance is Building_WorkTable workTable && workTable.Faction == Faction.OfPlayer)
+            {
+                var member = GetMemberData(workTable);
+                foreach (var gizmo in WorkbenchGroupUtility.WorkbenchGroupMemberGizmos(member))
+                    yield return gizmo;
+            }
+        }
 
-        // [HarmonyPrefix]
-        // [HarmonyPatch("get_BillStack")]
-        // public static bool BillStack_Prefix(Building_WorkTable __instance, ref BillStack __result)
-        // {
-        //     if (memberData.TryGetValue(__instance, out var member) && member.Group != null)
-        //     {
-        //         __result = member.Group.sharedBillStack;
-        //         return false;
-        //     }
-        //     return true;
-        // }
+        public static bool BillStack_Prefix(Building_WorkTable __instance, ref BillStack __result)
+        {
+            var member = GetMemberData(__instance);
+            if (member.Group != null)
+            {
+                __result = member.Group.sharedBillStack;
+                Log.Message($"[WorkbenchConnect] BillStack redirected to shared stack for {__instance.def.defName} at {__instance.Position}");
+                return false;
+            }
+            return true;
+        }
 
-        // [HarmonyPostfix]
-        // [HarmonyPatch(nameof(Building_WorkTable.ExposeData))]
-        // public static void ExposeData_Postfix(Building_WorkTable __instance)
-        // {
-        //     if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.LoadingVars)
-        //     {
-        //         var member = GetMemberData(__instance);
+        public static void ExposeData_Postfix(Building_WorkTable __instance)
+        {
+            if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                var member = GetMemberData(__instance);
 
-        //         int groupID = member.Group?.loadID ?? -1;
-        //         Scribe_Values.Look(ref groupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
+                int groupID = member.Group?.loadID ?? -1;
+                Scribe_Values.Look(ref groupID, $"workbenchGroupID_{__instance.thingIDNumber}", -1);
 
-        //         if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID != -1)
-        //         {
-        //             var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
-        //             var group = manager?.GetGroupByID(groupID);
-        //             if (group != null)
-        //             {
-        //                 WorkbenchGroupUtility.SetWorkbenchGroup(member, group);
-        //             }
-        //         }
-        //     }
-        // }
+                if (Scribe.mode == LoadSaveMode.PostLoadInit && groupID != -1)
+                {
+                    var manager = __instance.Map?.GetComponent<WorkbenchGroupManager>();
+                    var group = manager?.GetGroupByID(groupID);
+                    if (group != null)
+                    {
+                        WorkbenchGroupUtility.SetWorkbenchGroup(member, group);
+                    }
+                }
+            }
+        }
     }
 }
