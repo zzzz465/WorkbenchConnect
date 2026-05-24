@@ -1,10 +1,6 @@
-#!/bin/bash
-echo "Building WorkbenchConnect mod..."
-cd Source/WorkbenchConnect
-dotnet build --configuration Debug
-if [ $? -eq 0 ]; then
-    echo "Build successful! DLL created in Assemblies folder."
-else
-    echo "Build failed!"
-    exit 1
-fi
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR/scripts/build-local.sh" "$@"

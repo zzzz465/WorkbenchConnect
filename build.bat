@@ -1,7 +1,8 @@
 @echo off
+setlocal
 echo Building WorkbenchConnect mod...
-cd Source\WorkbenchConnect
-dotnet build --configuration Debug
+if "%CONFIGURATION%"=="" set CONFIGURATION=Release
+dotnet build Source\WorkbenchConnect\WorkbenchConnect.csproj --configuration %CONFIGURATION%
 if %ERRORLEVEL% EQU 0 (
     echo Build successful! DLL created in Assemblies folder.
 ) else (

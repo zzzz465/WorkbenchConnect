@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <AssemblyName>WorkbenchConnect</AssemblyName>
     <RootNamespace>WorkbenchConnect</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -13,33 +13,9 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <RimWorldManagedPath Condition="'$(RimWorldManagedPath)' == '' AND '$([MSBuild]::IsOSPlatform(OSX))'">$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManagedPath>
-    <RimWorldManagedPath Condition="'$(RimWorldManagedPath)' == '' AND '$([MSBuild]::IsOSPlatform(Windows))'">$(ProgramFiles)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed</RimWorldManagedPath>
-    <RimWorldManagedPath Condition="'$(RimWorldManagedPath)' == '' AND '$([MSBuild]::IsOSPlatform(Linux))'">$(HOME)/.steam/steam/steamapps/common/RimWorld/RimWorldLinux_Data/Managed</RimWorldManagedPath>
-  </PropertyGroup>
-
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\workshop\content\294100\2009463077\Current\Assemblies\0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4633" PrivateAssets="All" />
+    <PackageReference Include="Lib.Harmony.Ref" Version="2.4.2" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

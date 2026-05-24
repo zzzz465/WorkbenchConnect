@@ -31,6 +31,8 @@ _ReSharper*/
 *.tmp
 *.temp
 Temp/
+dist/
+.env
 
 # Unity-related (if applicable)
 [Ll]ibrary/
