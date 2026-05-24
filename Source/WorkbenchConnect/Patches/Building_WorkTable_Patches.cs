@@ -22,15 +22,7 @@ namespace WorkbenchConnect.Patches
             public WorkbenchGroup Group
             {
                 get => group;
-                set
-                {
-                    if (group != value)
-                    {
-                        var oldGroup = group;
-                        group = value;
-                        UpdateBillStackReference(oldGroup);
-                    }
-                }
+                set => group = value;
             }
 
             public Map Map => workTable.Map;
@@ -42,31 +34,6 @@ namespace WorkbenchConnect.Patches
             public BillStack BillStack => workTable.billStack;
 
             public string GetUniqueLoadID() => $"WorkbenchGroupMemberData_{workTable.thingIDNumber}";
-
-            private void UpdateBillStackReference(WorkbenchGroup oldGroup)
-            {
-                if (group != null)
-                {
-                    // Replace with shared bill stack
-                    workTable.billStack = group.sharedBillStack;
-                }
-                else
-                {
-                    // Create new bill stack when ungrouping
-                    var newBillStack = new BillStack(workTable);
-                    
-                    // Copy bills from shared stack if there was an old group
-                    if (oldGroup?.sharedBillStack != null)
-                    {
-                        foreach (var bill in oldGroup.sharedBillStack.Bills.ToList())
-                        {
-                            newBillStack.AddBill(bill.Clone());
-                        }
-                    }
-                    
-                    workTable.billStack = newBillStack;
-                }
-            }
 
             public void Notify_GroupChanged()
             {
@@ -130,7 +97,7 @@ namespace WorkbenchConnect.Patches
                     
                     if (group != null)
                     {
-                        // Add this member to the group (this will set the shared billStack)
+                        // Add this member to the group and synchronize bills to its own bill stack
                         group.AddMember(member);
                         DebugHelper.Log($"Successfully restored workbench {__instance.def.defName} to group {member.savedGroupID}");
                         

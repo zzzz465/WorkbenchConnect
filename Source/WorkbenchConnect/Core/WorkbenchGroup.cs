@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using HarmonyLib;
+using System.Text;
 using RimWorld;
 using Verse;
 using WorkbenchConnect.Utils;
@@ -11,9 +11,10 @@ namespace WorkbenchConnect.Core
     {
         public int loadID = -1;
         public List<IWorkbenchGroupMember> members = [];
-        public BillStack sharedBillStack;
         public string groupLabel = "";
         private List<Bill> restoredBills = null; // Used for both serialization and restoration
+        private Dictionary<IWorkbenchGroupMember, string> billFingerprints = new Dictionary<IWorkbenchGroupMember, string>();
+        public static bool IsSynchronizingBills;
         
         // Bill reservation system to prevent multiple pawns working on same bill
         private Dictionary<Bill, Pawn> billReservations = new Dictionary<Bill, Pawn>();
@@ -151,30 +152,24 @@ namespace WorkbenchConnect.Core
 
         public WorkbenchGroup(IWorkbenchGroupMember founder)
         {
-            // Initialize shared bill stack with the founder as billGiver
-            sharedBillStack = new BillStack(founder.SelectableThing as IBillGiver);
-            
+            var initialBills = founder.BillStack?.Bills?.ToList() ?? [];
+
             members.Add(founder);
             founder.Group = this;
             groupLabel = GetNewGroupLabel();
+            ApplyBillsToMember(founder, initialBills);
             
             DebugHelper.Log($"Created new workbench group with founder: {founder}");
         }
 
         public void InitializeWithBills(IWorkbenchGroupMember founder, List<Bill> allBills)
         {
-            // Initialize shared bill stack with the founder as billGiver
-            sharedBillStack = new BillStack(founder.SelectableThing as IBillGiver);
-            
-            // Add all collected bills to shared stack (without cloning to preserve ownership)
-            foreach (var bill in allBills)
-            {
-                sharedBillStack.AddBill(bill);
-            }
-            
+            allBills ??= [];
+
             members.Add(founder);
             founder.Group = this;
             groupLabel = GetNewGroupLabel();
+            ApplyBillsToMember(founder, allBills);
             
             DebugHelper.Log($"Initialized new workbench group with founder: {founder} and {allBills.Count} bills");
         }
@@ -185,57 +180,12 @@ namespace WorkbenchConnect.Core
                 return;
 
             DebugHelper.Log($"Adding member to workbench group: {member}");
-            
-            // Initialize shared bill stack if not already done
-            if (sharedBillStack == null)
-            {
-                sharedBillStack = new BillStack(member.SelectableThing as IBillGiver);
-                
-                // Restore saved bills if available (this happens during save loading)
-                if (restoredBills != null)
-                {
-                    DebugHelper.Log($"Restoring {restoredBills.Count} bills to group {loadID}");
-                    foreach (var bill in restoredBills)
-                    {
-                        // Ensure bill has proper billStack reference to prevent null reference errors
-                        sharedBillStack.AddBill(bill);
-                        
-                        // Ensure bill has proper billStack reference (essential during loading)
-                        var billStackField = AccessTools.Field(typeof(Bill), "billStack");
-                        billStackField?.SetValue(bill, sharedBillStack);
-                    }
-                    restoredBills = null; // Clear after restoration
-                }
-            }
-            else
-            {
-                // If sharedBillStack already exists, update its billGiver to this member
-                // This can happen when multiple members are added to an existing group
-                var billGiverField = AccessTools.Field(typeof(BillStack), "billGiver");
-                if (billGiverField?.GetValue(sharedBillStack) == null)
-                {
-                    billGiverField.SetValue(sharedBillStack, member.SelectableThing as IBillGiver);
-                }
-            }
-            
-            // Migrate existing bills to shared stack BEFORE setting Group property
-            // (because setting Group will replace the billStack field)
-            // Check for duplicates to avoid adding bills that are already in the shared stack
-            if (member.BillStack?.Bills?.Any() == true)
-            {
-                var billsToMigrate = member.BillStack.Bills.ToList();
-                foreach (var bill in billsToMigrate)
-                {
-                    // Only add if not already in shared stack (to prevent duplicates)
-                    if (!sharedBillStack.Bills.Contains(bill))
-                    {
-                        sharedBillStack.AddBill(bill);
-                    }
-                }
-            }
+
+            var canonicalBills = GetCanonicalBills();
 
             members.Add(member);
-            member.Group = this; // This will replace member's billStack with sharedBillStack
+            member.Group = this;
+            ApplyBillsToMember(member, canonicalBills);
             member.Notify_GroupChanged();
             
             NotifyMembersChanged();
@@ -250,6 +200,7 @@ namespace WorkbenchConnect.Core
 
             members.Remove(member);
             member.Group = null;
+            billFingerprints.Remove(member);
             member.Notify_GroupChanged();
 
             if (members.Count <= 1)
@@ -266,22 +217,207 @@ namespace WorkbenchConnect.Core
         public void Dissolve()
         {
             DebugHelper.Log($"Dissolving workbench group with {members.Count} members");
+            var map = Map;
             
-            // Clear all member references first (this will create individual bill stacks with copied bills)
             foreach (var member in members.ToList())
             {
                 member.Group = null;
+                billFingerprints.Remove(member);
                 member.Notify_GroupChanged();
             }
-            
-            // Clear the shared bill stack directly (avoid Delete() which needs valid billGiver)
-            if (sharedBillStack != null)
-            {
-                sharedBillStack.Bills.Clear();
-            }
-            
+
+            billReservations.Clear();
             members.Clear();
-            Map?.GetComponent<WorkbenchGroupManager>()?.Notify_GroupRemoved(this);
+            map?.GetComponent<WorkbenchGroupManager>()?.Notify_GroupRemoved(this);
+        }
+
+        public void SyncBillsFromMember(IWorkbenchGroupMember source)
+        {
+            if (IsSynchronizingBills || source?.Group != this || source.BillStack == null)
+                return;
+
+            var sourceBills = source.BillStack.Bills?.ToList() ?? [];
+            bool previousSyncing = IsSynchronizingBills;
+            IsSynchronizingBills = true;
+
+            try
+            {
+                foreach (var member in members.ToList())
+                {
+                    if (member == null || member == source)
+                        continue;
+
+                    ApplyBillsToMember(member, sourceBills);
+                }
+            }
+            finally
+            {
+                IsSynchronizingBills = previousSyncing;
+            }
+
+            RememberBillFingerprint(source);
+            foreach (var member in members)
+            {
+                RememberBillFingerprint(member);
+            }
+        }
+
+        public void SyncBillsFromMemberIfChanged(IWorkbenchGroupMember source)
+        {
+            if (IsSynchronizingBills || source?.Group != this || source.BillStack == null)
+                return;
+
+            string fingerprint = GetBillFingerprint(source);
+            if (!billFingerprints.TryGetValue(source, out var knownFingerprint))
+            {
+                billFingerprints[source] = fingerprint;
+                return;
+            }
+
+            if (knownFingerprint != fingerprint)
+            {
+                SyncBillsFromMember(source);
+            }
+        }
+
+        private List<Bill> GetCanonicalBills()
+        {
+            var source = members.FirstOrDefault(m => m?.BillStack?.Bills != null);
+            if (source?.BillStack?.Bills != null)
+                return source.BillStack.Bills.ToList();
+
+            return restoredBills?.ToList() ?? [];
+        }
+
+        private void ApplyBillsToMember(IWorkbenchGroupMember member, List<Bill> sourceBills)
+        {
+            if (member?.BillStack == null)
+                return;
+
+            var clonedBills = CloneBills(sourceBills);
+            bool previousSyncing = IsSynchronizingBills;
+            IsSynchronizingBills = true;
+
+            try
+            {
+                member.BillStack.Clear();
+                foreach (var bill in clonedBills)
+                {
+                    member.BillStack.AddBill(bill);
+                }
+            }
+            finally
+            {
+                IsSynchronizingBills = previousSyncing;
+            }
+
+            RememberBillFingerprint(member);
+        }
+
+        private static List<Bill> CloneBills(IEnumerable<Bill> sourceBills)
+        {
+            var clonedBills = new List<Bill>();
+            if (sourceBills == null)
+                return clonedBills;
+
+            foreach (var bill in sourceBills)
+            {
+                if (bill == null || bill.deleted)
+                    continue;
+
+                clonedBills.Add(bill.Clone());
+            }
+
+            return clonedBills;
+        }
+
+        private void RememberBillFingerprint(IWorkbenchGroupMember member)
+        {
+            if (member?.BillStack == null)
+                return;
+
+            billFingerprints[member] = GetBillFingerprint(member);
+        }
+
+        private static string GetBillFingerprint(IWorkbenchGroupMember member)
+        {
+            return GetBillFingerprint(member?.BillStack?.Bills);
+        }
+
+        private static string GetBillFingerprint(IEnumerable<Bill> bills)
+        {
+            var builder = new StringBuilder();
+            if (bills == null)
+                return "";
+
+            foreach (var bill in bills)
+            {
+                AppendBillFingerprint(builder, bill);
+                builder.Append('\n');
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendBillFingerprint(StringBuilder builder, Bill bill)
+        {
+            if (bill == null)
+            {
+                builder.Append("<null>");
+                return;
+            }
+
+            builder.Append(bill.GetType().FullName).Append('|');
+            builder.Append(bill.recipe?.defName).Append('|');
+            builder.Append(bill.suspended).Append('|');
+            builder.Append(bill.ingredientSearchRadius).Append('|');
+            builder.Append(bill.allowedSkillRange.min).Append('-').Append(bill.allowedSkillRange.max).Append('|');
+            builder.Append(bill.PawnRestriction?.thingIDNumber ?? -1).Append('|');
+            builder.Append(bill.SlavesOnly).Append('|').Append(bill.MechsOnly).Append('|').Append(bill.NonMechsOnly).Append('|');
+            AppendThingFilterFingerprint(builder, bill.ingredientFilter);
+
+            if (bill is Bill_Production production)
+            {
+                builder.Append('|').Append(production.repeatMode?.defName);
+                builder.Append('|').Append(production.repeatCount);
+                builder.Append('|').Append(production.targetCount);
+                builder.Append('|').Append(production.pauseWhenSatisfied);
+                builder.Append('|').Append(production.unpauseWhenYouHave);
+                builder.Append('|').Append(production.includeEquipped);
+                builder.Append('|').Append(production.includeTainted);
+                builder.Append('|').Append(production.hpRange.min).Append('-').Append(production.hpRange.max);
+                builder.Append('|').Append(production.qualityRange.min).Append('-').Append(production.qualityRange.max);
+                builder.Append('|').Append(production.limitToAllowedStuff);
+                builder.Append('|').Append(production.paused);
+                builder.Append('|').Append(production.GetStoreMode()?.defName);
+
+                var slotGroup = production.GetSlotGroup();
+                builder.Append('|').Append(slotGroup?.GroupingLabel).Append(':').Append(slotGroup?.GroupingOrder ?? -1);
+
+                var includeGroup = production.GetIncludeSlotGroup();
+                builder.Append('|').Append(includeGroup?.GroupingLabel).Append(':').Append(includeGroup?.GroupingOrder ?? -1);
+                builder.Append('|').Append(production.RenamableLabel);
+            }
+        }
+
+        private static void AppendThingFilterFingerprint(StringBuilder builder, ThingFilter filter)
+        {
+            if (filter == null)
+            {
+                builder.Append("<filter:null>");
+                return;
+            }
+
+            builder.Append("filter:");
+            builder.Append(filter.Summary).Append(':');
+            builder.Append(filter.AllowedDefCount).Append(':');
+            builder.Append(filter.AllowedHitPointsPercents.min).Append('-').Append(filter.AllowedHitPointsPercents.max).Append(':');
+            builder.Append(filter.AllowedQualityLevels.min).Append('-').Append(filter.AllowedQualityLevels.max).Append(':');
+
+            foreach (var def in filter.AllowedThingDefs?.OrderBy(def => def.defName) ?? Enumerable.Empty<ThingDef>())
+            {
+                builder.Append(def.defName).Append(',');
+            }
         }
 
         private void NotifyMembersChanged()
@@ -307,7 +443,7 @@ namespace WorkbenchConnect.Core
             // Save bills separately, not as a BillStack
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                restoredBills = sharedBillStack?.Bills?.ToList();
+                restoredBills = GetCanonicalBills();
                 DebugHelper.Log($"Saving group {loadID} with {restoredBills?.Count ?? 0} bills");
             }
             Scribe_Collections.Look(ref restoredBills, "savedBills", LookMode.Deep);
