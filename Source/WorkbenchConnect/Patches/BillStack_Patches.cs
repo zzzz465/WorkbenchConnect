@@ -1,5 +1,6 @@
 using HarmonyLib;
 using RimWorld;
+using UnityEngine;
 using Verse;
 using WorkbenchConnect.Core;
 
@@ -41,12 +42,28 @@ namespace WorkbenchConnect.Patches
 
         public static void BillInterface_Postfix(Bill __instance)
         {
+            if (!ShouldSyncFromBillInterface())
+                return;
+
             SyncFromBillStack(__instance?.billStack, force: false);
         }
 
         public static void DialogBillConfig_Postfix(Bill_Production ___bill)
         {
+            if (!ShouldSyncFromBillInterface())
+                return;
+
             SyncFromBillStack(___bill?.billStack, force: false);
+        }
+
+        private static bool ShouldSyncFromBillInterface()
+        {
+            var currentEvent = Event.current;
+            if (currentEvent == null)
+                return true;
+
+            return currentEvent.type != EventType.Repaint &&
+                   currentEvent.type != EventType.Layout;
         }
 
         private static void SyncFromBillStack(BillStack billStack, bool force)
