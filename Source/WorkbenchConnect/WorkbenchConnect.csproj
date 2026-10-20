@@ -1,21 +1,33 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Builds the RimWorld 1.7 (Waylith / CoreCLR) assembly into ../../1.7/Assemblies.
+    The 1.6 assembly in ../../1.6/Assemblies is the last 1.6 release and is no longer built.
+  -->
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>WorkbenchConnect</AssemblyName>
     <RootNamespace>WorkbenchConnect</RootNamespace>
-    <LangVersion>latest</LangVersion>
+    <Version>2.0.0</Version>
     <DebugType>none</DebugType>
-    <DebugSymbols>false</DebugSymbols>
+    <OutputPath>..\..\1.7\Assemblies\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>../../Assemblies/</OutputPath>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <!-- The game's reference assemblies mark plain .NET APIs Windows-only; the mod runs everywhere the game does. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
+  <Target Name="RequireRimWorld17" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(RimWorld17Dir)' == '' or !Exists('$(RimWorld17Dir)\UnityStubs.dll')"
+           Text="RimWorld17Dir must point at a RimWorld 1.7 game folder (holding UnityStubs.dll). Set it in Source/Local.props or on the command line." />
+  </Target>
+
   <ItemGroup>
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4633" PrivateAssets="All" />
-    <PackageReference Include="Lib.Harmony.Ref" Version="2.4.2" PrivateAssets="All" />
+    <Reference Include="Assembly-CSharp" HintPath="$(RimWorld17Dir)\Assembly-CSharp.dll" Private="false" />
+    <!-- Waylith redirects UnityEngine* to UnityStubs at runtime; compile against it directly. -->
+    <Reference Include="UnityStubs" HintPath="$(RimWorld17Dir)\UnityStubs.dll" Private="false" />
+    <!-- The Harmony mod ships Harmony 3.0 (net10.0) for RimWorld 1.7. -->
+    <PackageReference Include="Lib.Harmony.Ref" Version="3.0.0-rc.2" ExcludeAssets="runtime" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

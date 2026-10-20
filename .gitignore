@@ -58,3 +58,10 @@ Screenshots/
 *.backup
 *.bak
 *.orig
+
+# Local build settings and test output
+Source/Local.props
+TestResults/
+Source/Tools/InGameTestDriver/Mod/1.7/
+**/bin/
+**/obj/

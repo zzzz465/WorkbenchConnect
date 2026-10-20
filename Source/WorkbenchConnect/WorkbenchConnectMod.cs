@@ -1,57 +1,52 @@
 using HarmonyLib;
+using UnityEngine;
 using Verse;
-using WorkbenchConnect.Patches;
 
-namespace WorkbenchConnect
+namespace WorkbenchConnect;
+
+public class WorkbenchConnectMod : Mod
 {
-    [StaticConstructorOnStartup]
-    public class WorkbenchConnectMod : Mod
+    public static WorkbenchConnectSettings Settings { get; private set; } = null!;
+
+    public WorkbenchConnectMod(ModContentPack content) : base(content)
     {
-        public static WorkbenchConnectSettings settings;
-
-        public WorkbenchConnectMod(ModContentPack content) : base(content)
-        {
-            settings = GetSettings<WorkbenchConnectSettings>();
-            
-            var harmony = new Harmony("jungooji.workbenchconnect");
-            Building_WorkTable_Patches.Patch(harmony);
-            BillStack_Patches.Patch(harmony);
-            WorkGiver_DoBill_Patches.Patch(harmony);
-            Bill_Patches.Patch(harmony);
-            UnfinishedThing_Patches.Patch(harmony);
-            
-            Log.Message("[WorkbenchConnect] Mod loaded successfully");
-        }
-
-        public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
-        {
-            settings.DoWindowContents(inRect);
-        }
-
-        public override string SettingsCategory()
-        {
-            return "WorkbenchConnect";
-        }
+        Settings = GetSettings<WorkbenchConnectSettings>();
+        new Harmony("jungooji.workbenchconnect").PatchAll(typeof(WorkbenchConnectMod).Assembly);
     }
 
-    public class WorkbenchConnectSettings : ModSettings
+    public override void DoSettingsWindowContents(Rect inRect) => Settings.DoWindowContents(inRect);
+
+    public override string SettingsCategory() => "Workbench Connect";
+}
+
+public class WorkbenchConnectSettings : ModSettings
+{
+    public bool enableDebugLogging;
+
+    public override void ExposeData()
     {
-        public bool enableDebugLogging = false;
+        Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
+        base.ExposeData();
+    }
 
-        public override void ExposeData()
-        {
-            Scribe_Values.Look(ref enableDebugLogging, "enableDebugLogging", false);
-            base.ExposeData();
-        }
+    public void DoWindowContents(Rect inRect)
+    {
+        var listing = new Listing_Standard();
+        listing.Begin(inRect);
+        listing.CheckboxLabeled("WorkbenchConnect.Settings.DebugLogging".Translate(), ref enableDebugLogging);
+        listing.End();
+    }
+}
 
-        public void DoWindowContents(UnityEngine.Rect inRect)
-        {
-            Listing_Standard listingStandard = new Listing_Standard();
-            listingStandard.Begin(inRect);
+internal static class DebugLog
+{
+    private const string Prefix = "[WorkbenchConnect] ";
 
-            listingStandard.CheckboxLabeled("Enable debug logging", ref enableDebugLogging);
+    public static bool Enabled => WorkbenchConnectMod.Settings?.enableDebugLogging == true;
 
-            listingStandard.End();
-        }
+    public static void Message(string text)
+    {
+        if (Enabled)
+            Log.Message(Prefix + text);
     }
 }

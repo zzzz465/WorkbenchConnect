@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WorkbenchConnect/WorkbenchConnect.csproj" />
+  <Project Path="WorkbenchConnect.Tests/WorkbenchConnect.Tests.csproj" />
+</Solution>
