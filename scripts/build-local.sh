@@ -14,4 +14,4 @@ info "Building WorkbenchConnect ($CONFIGURATION)"
 
 "$DOTNET_BIN" build "$PROJECT_PATH" --configuration "$CONFIGURATION"
 
-info "Build output: $REPO_ROOT/Assemblies/WorkbenchConnect.dll"
+info "Build output: $REPO_ROOT/1.7/Assemblies/WorkbenchConnect.dll"

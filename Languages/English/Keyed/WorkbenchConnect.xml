@@ -17,6 +17,11 @@
     <WorkbenchConnect.LinkDisabledSelectTwo>Select at least two workbenches of the same type</WorkbenchConnect.LinkDisabledSelectTwo>
     <WorkbenchConnect.AlreadyLinked>Workbenches are already linked</WorkbenchConnect.AlreadyLinked>
 
+    <WorkbenchConnect.RepeatsInProgress>Every remaining repetition is already being made at a linked workbench</WorkbenchConnect.RepeatsInProgress>
+
+    <!-- Settings -->
+    <WorkbenchConnect.Settings.DebugLogging>Enable debug logging</WorkbenchConnect.Settings.DebugLogging>
+
     <!-- Default names -->
     <WorkbenchConnect.GroupDefaultName>Workbench Group</WorkbenchConnect.GroupDefaultName>
 </LanguageData>

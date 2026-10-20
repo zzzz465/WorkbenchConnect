@@ -41,7 +41,9 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
 fi
 
 [[ -f "$REPO_ROOT/About/About.xml" ]] || die "Missing About/About.xml"
-[[ -f "$REPO_ROOT/Assemblies/WorkbenchConnect.dll" ]] || die "Missing Assemblies/WorkbenchConnect.dll"
+for version in 1.6 1.7; do
+  [[ -f "$REPO_ROOT/$version/Assemblies/WorkbenchConnect.dll" ]] || die "Missing $version/Assemblies/WorkbenchConnect.dll"
+done
 
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
@@ -56,7 +58,6 @@ copy_if_present() {
 
 for path in \
   About \
-  Assemblies \
   Languages \
   Defs \
   Patches \
@@ -64,8 +65,7 @@ for path in \
   Textures \
   Common \
   1.6 \
-  1.5 \
-  1.4 \
+  1.7 \
   LoadFolders.xml; do
   copy_if_present "$path"
 done
@@ -75,7 +75,9 @@ find "$STAGING_DIR" -name '.gitkeep' -delete
 find "$STAGING_DIR" \( -name '*.pdb' -o -name '*.mdb' \) -delete
 
 [[ -f "$STAGING_DIR/About/About.xml" ]] || die "Package is missing About/About.xml"
-[[ -f "$STAGING_DIR/Assemblies/WorkbenchConnect.dll" ]] || die "Package is missing Assemblies/WorkbenchConnect.dll"
+for version in 1.6 1.7; do
+  [[ -f "$STAGING_DIR/$version/Assemblies/WorkbenchConnect.dll" ]] || die "Package is missing $version/Assemblies/WorkbenchConnect.dll"
+done
 
 if [[ ! -f "$STAGING_DIR/About/Preview.png" ]]; then
   info "warning: About/Preview.png is missing; Steam Workshop preview will not be updated."

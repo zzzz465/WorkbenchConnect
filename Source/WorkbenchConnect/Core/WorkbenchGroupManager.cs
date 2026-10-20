@@ -1,173 +1,80 @@
 using System.Collections.Generic;
 using System.Linq;
+using RimWorld;
+using UnityEngine;
 using Verse;
-using WorkbenchConnect.Utils;
 
-namespace WorkbenchConnect.Core
+namespace WorkbenchConnect.Core;
+
+// Saved as a map component; the full type name is part of the save format.
+public class WorkbenchGroupManager : MapComponent
 {
-    public class WorkbenchGroupManager : MapComponent, IExposable
+    private const int SyncIntervalTicks = 250;
+    private const int SettingsIntervalFrames = 10;
+
+    private List<WorkbenchGroup> groups = new();
+    private int nextGroupID = 1;
+
+    public WorkbenchGroupManager(Map map) : base(map)
     {
-        private List<WorkbenchGroup> groups = [];
-        private int nextGroupID = 1;
+    }
 
-        public WorkbenchGroupManager(Map map) : base(map)
+    public static WorkbenchGroupManager? For(Map? map) => map?.GetComponent<WorkbenchGroupManager>();
+
+    internal WorkbenchGroup Link(List<Building_WorkTable> benches)
+    {
+        var group = new WorkbenchGroup(this, nextGroupID++);
+        groups.Add(group);
+        group.LinkAll(benches);
+        DebugLog.Message($"Group {group.loadID} created with {benches.Count} workbenches");
+        return group;
+    }
+
+    internal void Remove(WorkbenchGroup group) => groups.Remove(group);
+
+    public override void ExposeData()
+    {
+        base.ExposeData();
+        Scribe_Values.Look(ref nextGroupID, "nextGroupID", 1);
+        Scribe_Collections.Look(ref groups, "groups", LookMode.Deep);
+
+        if (Scribe.mode == LoadSaveMode.PostLoadInit)
         {
+            groups ??= new List<WorkbenchGroup>();
+            groups.RemoveAll(group => group == null);
+            foreach (var group in groups)
+                group.manager = this;
+            if (groups.Count > 0)
+                nextGroupID = Mathf.Max(nextGroupID, groups.Max(group => group.loadID) + 1);
         }
+    }
 
-        public IEnumerable<WorkbenchGroup> Groups => groups.AsReadOnly();
+    public override void FinalizeInit()
+    {
+        base.FinalizeInit();
+        LegacySave.Migrate(map, groups);
+        foreach (var group in groups.ToList())
+            group.Revalidate(map);
+    }
 
-        public WorkbenchGroup NewGroup(IWorkbenchGroupMember founder)
-        {
-            if (founder?.Map != map)
-            {
-                DebugHelper.Error($"Attempted to create workbench group on wrong map");
-                return null;
-            }
+    public override void MapComponentTick()
+    {
+        // Catches bill changes made behind the bill stack's back, e.g. by other mods.
+        if (groups.Count == 0 || Find.TickManager.TicksGame % SyncIntervalTicks != 0)
+            return;
 
-            var group = new WorkbenchGroup(founder)
-            {
-                loadID = nextGroupID++
-            };
+        foreach (var group in groups.ToList())
+            group.Sync();
+    }
 
-            groups.Add(group);
-            DebugHelper.Log($"Created new workbench group {group.loadID} on map {map} with founder {founder}");
-            DebugHelper.Log($"Total groups now: {groups.Count}");
-            
-            return group;
-        }
+    public override void MapComponentUpdate()
+    {
+        // Settings are edited through plain field writes all over the bill UI, so they are
+        // compared instead of hooked. Runs while paused too.
+        if (groups.Count == 0 || Time.frameCount % SettingsIntervalFrames != 0)
+            return;
 
-        public WorkbenchGroup NewGroupWithBills(IWorkbenchGroupMember founder, List<RimWorld.Bill> allBills)
-        {
-            if (founder?.Map != map)
-            {
-                DebugHelper.Error($"Attempted to create workbench group on wrong map");
-                return null;
-            }
-
-            var group = new WorkbenchGroup()
-            {
-                loadID = nextGroupID++
-            };
-
-            // Initialize the group with all collected bills
-            group.InitializeWithBills(founder, allBills);
-
-            groups.Add(group);
-            DebugHelper.Log($"Created new workbench group {group.loadID} with {allBills.Count} bills on map {map} with founder {founder}");
-            DebugHelper.Log($"Total groups now: {groups.Count}");
-            
-            return group;
-        }
-
-        public void Notify_GroupRemoved(WorkbenchGroup group)
-        {
-            if (groups.Contains(group))
-            {
-                groups.Remove(group);
-                DebugHelper.Log($"Removed workbench group {group.loadID} from map {map}");
-            }
-        }
-
-        public void Notify_MemberRemoved(IWorkbenchGroupMember member)
-        {
-            var group = member.Group;
-            if (group != null && groups.Contains(group))
-            {
-                group.RemoveMember(member);
-            }
-        }
-
-        public string NewWorkbenchGroupName()
-        {
-            int num = 1;
-            string baseName = "WorkbenchConnect.GroupDefaultName".Translate();
-            
-            while (groups.Any(g => g.groupLabel == $"{baseName} {num}"))
-            {
-                num++;
-            }
-            
-            return $"{baseName} {num}";
-        }
-
-        public WorkbenchGroup GetGroupByID(int id)
-        {
-            return groups?.FirstOrDefault(g => g.loadID == id);
-        }
-
-        public override void ExposeData()
-        {
-            base.ExposeData();
-            
-            if (Scribe.mode == LoadSaveMode.Saving)
-            {
-                DebugHelper.Log($"Saving {groups.Count} workbench groups");
-            }
-            
-            Scribe_Values.Look(ref nextGroupID, "nextGroupID", 1);
-            Scribe_Collections.Look(ref groups, "groups", LookMode.Deep);
-
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                DebugHelper.Log($"After loading: Groups={groups?.Count ?? 0}, NextGroupID={nextGroupID}");
-                
-                if (groups == null)
-                    groups = [];
-
-                // Clean up invalid groups and update next ID
-                int originalCount = groups.Count;
-                groups.RemoveAll(g => g == null || !g.Valid);
-                
-                if (originalCount != groups.Count)
-                {
-                    DebugHelper.Log($"Removed {originalCount - groups.Count} invalid groups");
-                }
-                
-                if (groups.Any())
-                {
-                    nextGroupID = groups.Max(g => g.loadID) + 1;
-                }
-
-                DebugHelper.Log($"Final loaded groups: {groups.Count}");
-            }
-        }
-
-        public override void MapComponentTick()
-        {
-            base.MapComponentTick();
-            
-            // Periodic cleanup of invalid groups
-            if (Find.TickManager.TicksGame % 2500 == 0) // Every ~40 seconds
-            {
-                CleanupInvalidGroups();
-            }
-        }
-
-        private void CleanupInvalidGroups()
-        {
-            var invalidGroups = groups.Where(g => !g.Valid).ToList();
-            foreach (var group in invalidGroups)
-            {
-                DebugHelper.Log($"Cleaning up invalid workbench group {group.loadID}");
-                group.Dissolve();
-            }
-        }
-
-        public override void MapComponentUpdate()
-        {
-            base.MapComponentUpdate();
-            
-            // Draw connection overlays for selected workbenches
-            if (Find.Selector.SelectedObjects?.Any() == true)
-            {
-                foreach (var selected in Find.Selector.SelectedObjects)
-                {
-                    if (selected is IWorkbenchGroupMember member && member.Group != null)
-                    {
-                        WorkbenchGroupUtility.DrawSelectionOverlaysFor(member);
-                    }
-                }
-            }
-        }
+        foreach (var group in groups)
+            group.SyncSettings();
     }
 }

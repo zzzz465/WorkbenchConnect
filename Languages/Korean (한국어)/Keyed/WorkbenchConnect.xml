@@ -17,6 +17,11 @@
     <WorkbenchConnect.LinkDisabledSelectTwo>같은 유형의 작업대를 최소 두 개 선택하세요</WorkbenchConnect.LinkDisabledSelectTwo>
     <WorkbenchConnect.AlreadyLinked>작업대가 이미 연결되어 있습니다</WorkbenchConnect.AlreadyLinked>
 
+    <WorkbenchConnect.RepeatsInProgress>남은 반복 횟수만큼 연결된 작업대에서 이미 만들고 있습니다</WorkbenchConnect.RepeatsInProgress>
+
+    <!-- Settings -->
+    <WorkbenchConnect.Settings.DebugLogging>디버그 로그 사용</WorkbenchConnect.Settings.DebugLogging>
+
     <!-- Default names -->
     <WorkbenchConnect.GroupDefaultName>작업대 그룹</WorkbenchConnect.GroupDefaultName>
 </LanguageData> 
