@@ -75,6 +75,9 @@ public class WorkbenchGroupManager : MapComponent
             return;
 
         foreach (var group in groups)
+        {
+            group.SyncOrder();
             group.SyncSettings();
+        }
     }
 }

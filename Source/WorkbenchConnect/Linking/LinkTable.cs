@@ -199,6 +199,26 @@ public sealed class LinkTable<TMember, TItem>
     }
 
     /// <summary>
+    /// Returns a member whose linked items are no longer in row order, preferring one that
+    /// <paramref name="preferred"/> picks, or null when every member is in order. Catches
+    /// reorders made by writing to the list directly. Items the table does not know are ignored,
+    /// so this works before <see cref="Reconcile"/>.
+    /// </summary>
+    public TMember? FindReordered(Func<TMember, IReadOnlyList<TItem>> listOf, Func<TMember, bool> preferred)
+    {
+        TMember? found = null;
+        foreach (var member in members)
+        {
+            if (FollowsRowOrder(member, listOf(member)))
+                continue;
+            if (preferred(member))
+                return member;
+            found ??= member;
+        }
+        return found;
+    }
+
+    /// <summary>
     /// Returns the member's list with its linked items in row order, leaving unlinked items in
     /// their slots, or null when the list is already in order or does not match the table.
     /// </summary>
@@ -263,6 +283,22 @@ public sealed class LinkTable<TMember, TItem>
     {
         foreach (var item in row.copies.Values)
             row.stamps[item] = stamp(item);
+    }
+
+    private bool FollowsRowOrder(TMember member, IReadOnlyList<TItem> list)
+    {
+        int last = -1;
+        foreach (var item in list)
+        {
+            if (!rowOf.TryGetValue(item, out var row) || !ReferenceEquals(row.CopyFor(member), item))
+                continue;
+
+            int index = rows.IndexOf(row);
+            if (index < last)
+                return false;
+            last = index;
+        }
+        return true;
     }
 
     private int InsertIndex(Row? previous, IReadOnlyList<TItem> list, int index)
