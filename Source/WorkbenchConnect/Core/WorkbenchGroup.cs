@@ -99,9 +99,11 @@ public class WorkbenchGroup : IExposable
     /// <summary>
     /// Makes every member hold a copy of every shared bill, in the same order.
     /// </summary>
-    /// <param name="orderFrom">A member whose bill order the others take, after the player reordered it.</param>
+    /// <param name="orderFrom">A member whose bill order the others take, after the player reordered it.
+    /// Without one, a member reordered behind the bill stack's back (e.g. by dragging in Nice Bill Tab) is used.</param>
     internal void Sync(Building_WorkTable? orderFrom = null)
     {
+        orderFrom ??= ReorderedMember();
         if (orderFrom != null)
             table.AdoptOrder(orderFrom.billStack.Bills);
 
@@ -130,6 +132,13 @@ public class WorkbenchGroup : IExposable
 
         if (!plan.IsEmpty || reordered > 0)
             DebugLog.Message($"Group {loadID}: deleted {plan.Delete.Count}, copied {plan.Clone.Count}, reordered {reordered}");
+    }
+
+    /// <summary>Spreads a reorder made behind the bill stack's back, so it shows on the other members while paused too.</summary>
+    internal void SyncOrder()
+    {
+        if (ReorderedMember() is { } member)
+            Sync(member);
     }
 
     /// <summary>Copies settings the player changed on one copy to the others.</summary>
@@ -288,6 +297,9 @@ public class WorkbenchGroup : IExposable
         }
         table.Restamp(row, BillSettings.Stamp);
     }
+
+    private Building_WorkTable? ReorderedMember() =>
+        table.FindReordered(member => member.billStack.Bills, member => Find.Selector.IsSelected(member));
 
     private static bool IsOnSelectedBench(Bill bill) =>
         bill.billStack?.billGiver is Thing bench && Find.Selector.IsSelected(bench);

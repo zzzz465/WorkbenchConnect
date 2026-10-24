@@ -30,8 +30,9 @@ public class LinkTableTests
     private readonly Bench b = new("B");
     private readonly Bench c = new("C");
 
-    private LinkTable<Bench, Bill>.Plan Sync(Bench? orderFrom = null)
+    private LinkTable<Bench, Bill>.Plan Sync(Bench? orderFrom = null, Bench? selected = null)
     {
+        orderFrom ??= table.FindReordered(bench => bench.Bills, bench => bench == selected);
         if (orderFrom != null)
             table.AdoptOrder(orderFrom.Bills);
 
@@ -154,6 +155,53 @@ public class LinkTableTests
 
         Assert.Equal("z,x,y", Recipes(a));
         Assert.Equal("z,x,y", Recipes(b));
+    }
+
+    [Fact]
+    public void Reorder_written_straight_to_the_list_is_spread_instead_of_undone()
+    {
+        a.Bills.AddRange([new Bill("x"), new Bill("y")]);
+        Link(a, b, c);
+
+        // Nice Bill Tab's drag and drop does this, without going through BillStack.Reorder.
+        var y = b.Bills[1];
+        b.Bills.Remove(y);
+        b.Bills.Insert(0, y);
+        Assert.Same(b, table.FindReordered(bench => bench.Bills, _ => false));
+        Sync();
+
+        Assert.Equal("y,x", Recipes(a));
+        Assert.Equal("y,x", Recipes(b));
+        Assert.Equal("y,x", Recipes(c));
+        Assert.Null(table.FindReordered(bench => bench.Bills, _ => false));
+    }
+
+    [Fact]
+    public void Reorder_on_the_selected_member_wins()
+    {
+        a.Bills.AddRange([new Bill("x"), new Bill("y"), new Bill("z")]);
+        Link(a, b);
+
+        a.Bills.Reverse();
+        var x = b.Bills[0];
+        b.Bills.Remove(x);
+        b.Bills.Add(x);
+        Sync(selected: b);
+
+        Assert.Equal("y,z,x", Recipes(a));
+        Assert.Equal("y,z,x", Recipes(b));
+    }
+
+    [Fact]
+    public void New_and_deleted_bills_alone_are_not_a_reorder()
+    {
+        a.Bills.AddRange([new Bill("x"), new Bill("y"), new Bill("z")]);
+        Link(a, b);
+
+        b.Bills.RemoveAt(1);
+        b.Bills.Insert(0, new Bill("new"));
+
+        Assert.Null(table.FindReordered(bench => bench.Bills, _ => false));
     }
 
     [Fact]
